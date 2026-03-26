@@ -27,9 +27,7 @@ struct PeekApp: App {
             }
 
             Button("Check for Updates...") {
-                Task {
-                    appDelegate.updateAvailable = await UpdateService.shared.checkForUpdate()
-                }
+                appDelegate.checkForUpdates()
             }
 
             Button("Settings...") {
