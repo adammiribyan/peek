@@ -1,3 +1,4 @@
+import PostHog
 import SwiftUI
 
 struct TicketCardView: View {
@@ -6,16 +7,23 @@ struct TicketCardView: View {
     @State private var copied = false
     let jiraDomain: String
     let onClose: () -> Void
+    var onOpenTicket: ((String) -> Void)?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             header
             title
             metadata
+            if PostHogSDK.shared.isFeatureEnabled("linked_issues") {
+                linkedIssues
+            }
             Divider().padding(.horizontal, 12)
             summaryContent
             Divider().padding(.horizontal, 12)
             footer
+        }
+        .task {
+            PostHogSDK.shared.reloadFeatureFlags()
         }
         .task {
             await viewModel.loadSummary()
@@ -120,9 +128,16 @@ struct TicketCardView: View {
                         .font(.system(size: 11, weight: .medium))
                 }
                 .foregroundStyle(.secondary)
+                .lineLimit(1)
             }
-            ForEach(Array(viewModel.pullRequests.enumerated()), id: \.offset) { _, pr in
-                Button(action: { openURL(pr.url) }) {
+            ForEach(Array(viewModel.pullRequests.prefix(2).enumerated()), id: \.offset) { _, pr in
+                Button(action: {
+                    PostHogSDK.shared.capture("pr_clicked", properties: [
+                        "ticket_key": viewModel.issue.key,
+                        "pr_number": pr.number,
+                    ])
+                    openURL(pr.url)
+                }) {
                     HStack(spacing: 3) {
                         Image(systemName: "arrow.triangle.pull")
                             .font(.system(size: 9, weight: .semibold))
@@ -138,10 +153,66 @@ struct TicketCardView: View {
                 .buttonStyle(.plain)
                 .onHover { h in if h { NSCursor.pointingHand.push() } else { NSCursor.pop() } }
             }
+            if viewModel.pullRequests.count > 2 {
+                Text("+\(viewModel.pullRequests.count - 2)")
+                    .font(.system(size: 10, weight: .medium))
+                    .foregroundStyle(.secondary)
+            }
             Spacer()
         }
+        .lineLimit(1)
         .padding(.horizontal, 16)
         .padding(.bottom, 10)
+    }
+
+    // MARK: - Linked Issues
+
+    private var links: [(label: String, key: String, summary: String)] {
+        guard let issuelinks = viewModel.issue.fields.issuelinks else { return [] }
+        var result: [(String, String, String)] = []
+        for link in issuelinks {
+            if let outward = link.outwardIssue {
+                result.append((link.type.outward, outward.key, outward.fields.summary))
+            }
+            if let inward = link.inwardIssue {
+                result.append((link.type.inward, inward.key, inward.fields.summary))
+            }
+        }
+        return result
+    }
+
+    @ViewBuilder
+    private var linkedIssues: some View {
+        if !links.isEmpty {
+            VStack(alignment: .leading, spacing: 4) {
+                ForEach(Array(links.enumerated()), id: \.offset) { _, link in
+                    HStack(spacing: 4) {
+                        Text(link.label)
+                            .font(.system(size: 10))
+                            .foregroundStyle(.tertiary)
+                        Button(action: {
+                            PostHogSDK.shared.capture("linked_ticket_opened", properties: [
+                                "from_key": viewModel.issue.key,
+                                "to_key": link.key,
+                            ])
+                            onOpenTicket?(link.key)
+                        }) {
+                            Text(link.key)
+                                .font(.system(size: 11, weight: .medium, design: .monospaced))
+                                .foregroundStyle(.blue)
+                        }
+                        .buttonStyle(.plain)
+                        .onHover { h in if h { NSCursor.pointingHand.push() } else { NSCursor.pop() } }
+                        Text(link.summary)
+                            .font(.system(size: 10))
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                    }
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.bottom, 8)
+        }
     }
 
     private func prColor(_ status: String) -> Color {
@@ -236,6 +307,7 @@ struct TicketCardView: View {
         let link = "\(domain)/browse/\(viewModel.issue.key)"
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(link, forType: .string)
+        PostHogSDK.shared.capture("link_copied", properties: ["ticket_key": viewModel.issue.key])
         withAnimation { copied = true }
         DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
             withAnimation { copied = false }
@@ -247,6 +319,7 @@ struct TicketCardView: View {
         guard !domain.isEmpty,
               let url = URL(string: "\(domain)/browse/\(viewModel.issue.key)")
         else { return }
+        PostHogSDK.shared.capture("open_in_jira_clicked", properties: ["ticket_key": viewModel.issue.key])
         NSWorkspace.shared.open(url)
     }
 

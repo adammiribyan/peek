@@ -17,6 +17,30 @@ struct JiraIssue: Codable, Sendable {
         let comment: JiraCommentContainer?
         let created: String?
         let updated: String?
+        let issuelinks: [JiraIssueLink]?
+    }
+
+    struct JiraIssueLink: Codable, Sendable {
+        let type: LinkType
+        let inwardIssue: LinkedIssue?
+        let outwardIssue: LinkedIssue?
+
+        struct LinkType: Codable, Sendable {
+            let name: String
+            let inward: String
+            let outward: String
+        }
+
+        struct LinkedIssue: Codable, Sendable {
+            let key: String
+            let fields: LinkedFields
+
+            struct LinkedFields: Codable, Sendable {
+                let summary: String
+                let status: JiraStatus?
+                let issuetype: JiraIssueType?
+            }
+        }
     }
 
     struct JiraStatus: Codable, Sendable {

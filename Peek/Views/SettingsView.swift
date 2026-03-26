@@ -1,3 +1,4 @@
+import PostHog
 import SwiftUI
 
 struct SettingsView: View {
@@ -122,8 +123,13 @@ struct SettingsView: View {
             if !anthropicKey.isEmpty {
                 try keychain.save(anthropicKey, for: .anthropicApiKey)
             }
+            if !jiraEmail.isEmpty {
+                PostHogSDK.shared.identify(jiraEmail, userProperties: ["email": jiraEmail])
+            }
+            PostHogSDK.shared.capture("settings_saved", properties: ["success": true])
             onSaveAndClose?()
         } catch {
+            PostHogSDK.shared.capture("settings_saved", properties: ["success": false])
             withAnimation { saveStatus = .init(message: error.localizedDescription, isError: true) }
         }
     }
@@ -163,13 +169,16 @@ struct SettingsView: View {
                 await MainActor.run {
                     if let http = response as? HTTPURLResponse, http.statusCode == 200 {
                         testResult = .success("Connected")
+                        PostHogSDK.shared.capture("test_connection", properties: ["result": "success"])
                     } else {
                         testResult = .failure("Auth failed")
+                        PostHogSDK.shared.capture("test_connection", properties: ["result": "auth_failed"])
                     }
                 }
             } catch {
                 await MainActor.run {
                     testResult = .failure(error.localizedDescription)
+                    PostHogSDK.shared.capture("test_connection", properties: ["result": "error"])
                 }
             }
 

@@ -47,7 +47,7 @@ final class JiraService {
             .trimmingCharacters(in: .whitespacesAndNewlines)
             .trimmingCharacters(in: CharacterSet(charactersIn: "/"))
 
-        let fields = "summary,status,assignee,reporter,priority,description,comment,issuetype,project,created,updated"
+        let fields = "summary,status,assignee,reporter,priority,description,comment,issuetype,project,created,updated,issuelinks"
         let urlString = "\(cleanDomain)/rest/api/3/issue/\(key)?fields=\(fields)"
 
         guard let url = URL(string: urlString) else {

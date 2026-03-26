@@ -1,5 +1,6 @@
 import AppKit
 import KeyboardShortcuts
+@_spi(Experimental) import PostHog
 
 extension KeyboardShortcuts.Name {
     static let toggleSearchPanel = Self(
@@ -15,11 +16,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
     @Published var updateStatus: String?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        let config = PostHogConfig(
+            apiKey: "phc_5YS2EvMSNpL3A7qyhzU2Ti6gKNSF7zuh4Kn4K276S3N",
+            host: "https://us.i.posthog.com"
+        )
+        config.errorTrackingConfig.autoCapture = true
+        PostHogSDK.shared.setup(config)
+
+        if let email = UserDefaults.standard.string(forKey: "jiraEmail"), !email.isEmpty {
+            PostHogSDK.shared.identify(email, userProperties: ["email": email])
+        }
+
         NSApp.setActivationPolicy(.accessory)
 
         KeyboardShortcuts.onKeyUp(for: .toggleSearchPanel) { [weak self] in
             self?.panelManager.showNewSearch()
         }
+
+        PostHogSDK.shared.capture("app_launched", properties: ["version": appVersion])
 
         panelManager.showNewSearch()
 
@@ -32,6 +46,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
         Task {
             let result = await UpdateService.shared.checkForUpdate()
             updateAvailable = result
+            PostHogSDK.shared.capture("update_checked", properties: [
+                "result": result != nil ? "available" : "current",
+                "latest_version": result?.version ?? appVersion,
+            ])
 
             NSApp.activate(ignoringOtherApps: true)
             let alert = NSAlert()

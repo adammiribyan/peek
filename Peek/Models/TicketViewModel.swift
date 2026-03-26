@@ -1,5 +1,6 @@
 import Foundation
 import Observation
+import PostHog
 
 @Observable
 final class TicketViewModel {
@@ -22,11 +23,16 @@ final class TicketViewModel {
 
     @MainActor
     func loadSummary() async {
+        let start = Date()
         do {
             for try await chunk in summaryService.streamSummary(issue: issue) {
                 summaryText += chunk
             }
             isLoading = false
+            PostHogSDK.shared.capture("summary_loaded", properties: [
+                "ticket_key": issue.key,
+                "duration_ms": Int(Date().timeIntervalSince(start) * 1000),
+            ])
         } catch {
             self.error = error.localizedDescription
             isLoading = false
@@ -43,5 +49,9 @@ final class TicketViewModel {
         let result = await summaryService.assessRisk(issue: issue)
         riskLevel = result.level
         riskReason = result.reason
+        PostHogSDK.shared.capture("risk_assessed", properties: [
+            "ticket_key": issue.key,
+            "level": result.level,
+        ])
     }
 }

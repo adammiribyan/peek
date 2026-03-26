@@ -1,3 +1,4 @@
+import PostHog
 import SwiftUI
 
 /// A single panel that starts as a compact search bar and morphs into a ticket
@@ -6,8 +7,10 @@ struct TicketPanelView: View {
     let jiraService: JiraService
     let summaryService: SummaryService
     let onDismiss: () -> Void
-    let onMorphToCard: () -> Void
+    let onMorphToCard: (String) -> Void
     let onOpenSettings: () -> Void
+    let onOpenLinkedTicket: ((String) -> Void)?
+    let autoSubmitKey: String?
 
     @State private var phase: Phase = .search
 
@@ -25,6 +28,7 @@ struct TicketPanelView: View {
     @State private var isLoading = false
     @State private var error: String?
     @State private var shakeOffset: CGFloat = 0
+    @State private var didAutoSubmit = false
     @FocusState private var focusedField: FocusField?
 
     private enum FocusField { case project, number }
@@ -49,7 +53,8 @@ struct TicketPanelView: View {
                 TicketCardView(
                     viewModel: vm,
                     jiraDomain: UserDefaults.standard.string(forKey: "jiraDomain") ?? "",
-                    onClose: onDismiss
+                    onClose: onDismiss,
+                    onOpenTicket: onOpenLinkedTicket
                 )
                 .frame(width: 420)
             }
@@ -97,7 +102,20 @@ struct TicketPanelView: View {
         .padding(.horizontal, 14)
         .padding(.vertical, 12)
         .offset(x: shakeOffset)
-        .onAppear { focusedField = .project }
+        .onAppear {
+            focusedField = .project
+            if let key = autoSubmitKey, !didAutoSubmit {
+                didAutoSubmit = true
+                let parts = key.split(separator: "-", maxSplits: 1)
+                if parts.count == 2 {
+                    matchedProject = String(parts[0])
+                    numberInput = String(parts[1])
+                } else {
+                    rawInput = key
+                }
+                submitKey(key)
+            }
+        }
     }
 
     // MARK: - Shake animation
@@ -240,14 +258,23 @@ struct TicketPanelView: View {
         } else {
             return
         }
+        submitKey(ticketKey)
+    }
 
+    private func submitKey(_ ticketKey: String) {
         guard !isLoading else { return }
         isLoading = true
         error = nil
+        PostHogSDK.shared.capture("search_initiated", properties: ["ticket_key": ticketKey])
 
         Task {
             do {
                 let issue = try await jiraService.fetchIssue(key: ticketKey)
+                PostHogSDK.shared.capture("ticket_viewed", properties: [
+                    "ticket_key": ticketKey,
+                    "issue_type": issue.fields.issuetype?.name ?? "unknown",
+                    "status": issue.fields.status?.name ?? "unknown",
+                ])
                 let vm = TicketViewModel(issue: issue, summaryService: summaryService, jiraService: jiraService)
                 await MainActor.run {
                     withAnimation(.easeInOut(duration: 0.2)) {
@@ -256,9 +283,13 @@ struct TicketPanelView: View {
                     isLoading = false
                 }
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
-                    onMorphToCard()
+                    onMorphToCard(ticketKey)
                 }
             } catch {
+                PostHogSDK.shared.capture("search_failed", properties: [
+                    "ticket_key": ticketKey,
+                    "error": error.localizedDescription,
+                ])
                 await MainActor.run {
                     self.error = error.localizedDescription
                     isLoading = false
