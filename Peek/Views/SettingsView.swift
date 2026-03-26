@@ -1,5 +1,4 @@
 import SwiftUI
-import KeyboardShortcuts
 
 struct SettingsView: View {
     @AppStorage("jiraDomain") private var jiraDomain = ""
@@ -10,7 +9,6 @@ struct SettingsView: View {
     @State private var testResult: TestResult?
     @State private var isTesting = false
     @State private var loaded = false
-    @State private var selectedTab = 0
 
     let onSaveAndClose: (() -> Void)?
 
@@ -22,29 +20,43 @@ struct SettingsView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // Tab picker
-            Picker("", selection: $selectedTab) {
-                Text("Connection").tag(0)
-                Text("General").tag(1)
-            }
-            .pickerStyle(.segmented)
-            .padding(.horizontal, 80)
-            .padding(.top, 16)
-            .padding(.bottom, 8)
+            Form {
+                Section {
+                    TextField("Domain", text: $jiraDomain, prompt: Text("https://company.atlassian.net"))
+                    TextField("Email", text: $jiraEmail, prompt: Text("you@company.com"))
+                    SecureField("API Token", text: $jiraToken, prompt: Text("Paste your Jira API token"))
+                    Link(destination: URL(string: "https://id.atlassian.com/manage-profile/security/api-tokens")!) {
+                        Label("Get your API token from Atlassian →", systemImage: "arrow.up.right")
+                            .font(.system(size: 11))
+                    }
+                } header: {
+                    Label("Jira", systemImage: "server.rack")
+                }
 
-            // Tab content
-            Group {
-                if selectedTab == 0 {
-                    connectionContent
-                } else {
-                    generalContent
+                Section {
+                    SecureField("API Key", text: $anthropicKey, prompt: Text("sk-ant-..."))
+                    Link(destination: URL(string: "https://console.anthropic.com/settings/keys")!) {
+                        Label("Get your API key from Anthropic →", systemImage: "arrow.up.right")
+                            .font(.system(size: 11))
+                    }
+                } header: {
+                    Label("Claude", systemImage: "brain")
+                }
+
+                Section {
+                    LabeledContent("Search Tickets") {
+                        Text("⌘⇧J")
+                            .font(.system(size: 13, design: .monospaced))
+                            .foregroundStyle(.secondary)
+                    }
+                } header: {
+                    Label("Shortcut", systemImage: "keyboard")
                 }
             }
-            .animation(.easeInOut(duration: 0.15), value: selectedTab)
+            .formStyle(.grouped)
 
             Divider()
 
-            // Bottom bar
             HStack {
                 connectionStatusView
 
@@ -56,10 +68,8 @@ struct SettingsView: View {
                         .padding(.trailing, 4)
                 }
 
-                if selectedTab == 0 {
-                    Button("Test Connection") { testConnection() }
-                        .disabled(isTesting || jiraDomain.isEmpty || jiraEmail.isEmpty || jiraToken.isEmpty)
-                }
+                Button("Test Connection") { testConnection() }
+                    .disabled(isTesting || jiraDomain.isEmpty || jiraEmail.isEmpty || jiraToken.isEmpty)
 
                 Button("Save") { saveAndClose() }
                     .keyboardShortcut("s", modifiers: .command)
@@ -78,48 +88,6 @@ struct SettingsView: View {
             jiraToken = keychain.read(for: .jiraApiToken) ?? ""
             anthropicKey = keychain.read(for: .anthropicApiKey) ?? ""
         }
-    }
-
-    // MARK: - Connection Tab
-
-    private var connectionContent: some View {
-        Form {
-            Section {
-                TextField("Domain", text: $jiraDomain, prompt: Text("https://company.atlassian.net"))
-                TextField("Email", text: $jiraEmail, prompt: Text("you@company.com"))
-                SecureField("API Token", text: $jiraToken, prompt: Text("Paste your Jira API token"))
-                Link(destination: URL(string: "https://id.atlassian.com/manage-profile/security/api-tokens")!) {
-                    Label("Get your API token from Atlassian →", systemImage: "arrow.up.right")
-                        .font(.system(size: 11))
-                }
-            } header: {
-                Label("Jira", systemImage: "server.rack")
-            }
-
-            Section {
-                SecureField("API Key", text: $anthropicKey, prompt: Text("sk-ant-..."))
-                Link(destination: URL(string: "https://console.anthropic.com/settings/keys")!) {
-                    Label("Get your API key from Anthropic →", systemImage: "arrow.up.right")
-                        .font(.system(size: 11))
-                }
-            } header: {
-                Label("Claude", systemImage: "brain")
-            }
-        }
-        .formStyle(.grouped)
-    }
-
-    // MARK: - General Tab
-
-    private var generalContent: some View {
-        Form {
-            Section {
-                KeyboardShortcuts.Recorder("Search Tickets:", name: .toggleSearchPanel)
-            } header: {
-                Label("Keyboard Shortcut", systemImage: "keyboard")
-            }
-        }
-        .formStyle(.grouped)
     }
 
     // MARK: - Status
@@ -161,7 +129,6 @@ struct SettingsView: View {
     }
 
     private func testConnection() {
-        // Save first so credentials are persisted
         do {
             if !jiraToken.isEmpty { try keychain.save(jiraToken, for: .jiraApiToken) }
             if !anthropicKey.isEmpty { try keychain.save(anthropicKey, for: .anthropicApiKey) }
