@@ -1,0 +1,333 @@
+import SwiftUI
+
+struct TicketCardView: View {
+    @State var viewModel: TicketViewModel
+    @State private var showRiskPopover = false
+    @State private var copied = false
+    let jiraDomain: String
+    let onClose: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            header
+            title
+            metadata
+            Divider().padding(.horizontal, 12)
+            summaryContent
+            Divider().padding(.horizontal, 12)
+            footer
+        }
+        .task {
+            await viewModel.loadSummary()
+        }
+        .task {
+            await viewModel.loadPullRequests()
+        }
+        .task {
+            await viewModel.loadRiskAssessment()
+        }
+    }
+
+    // MARK: - Header
+
+    private var header: some View {
+        HStack {
+            Button(action: openInJira) {
+                Text(viewModel.issue.key)
+                    .font(.system(size: 14, weight: .bold, design: .monospaced))
+                    .foregroundStyle(.primary)
+            }
+            .buttonStyle(.plain)
+            .onHover { hovering in
+                if hovering { NSCursor.pointingHand.push() } else { NSCursor.pop() }
+            }
+
+            if let type = viewModel.issue.fields.issuetype?.name {
+                Text(type)
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(.quaternary)
+                    .clipShape(Capsule())
+            }
+
+            Spacer()
+
+            if let level = viewModel.riskLevel {
+                Button(action: {
+                    if level != "green" { showRiskPopover.toggle() }
+                }) {
+                    Circle()
+                        .fill(riskColor(level))
+                        .frame(width: 10, height: 10)
+                }
+                .buttonStyle(.plain)
+                .popover(isPresented: $showRiskPopover, arrowEdge: .bottom) {
+                    Text(viewModel.riskReason ?? "")
+                        .font(.system(size: 12))
+                        .padding(10)
+                        .frame(maxWidth: 260)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .padding(.trailing, 4)
+            }
+
+            Button(action: onClose) {
+                Image(systemName: "xmark")
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundStyle(.secondary)
+                    .frame(width: 20, height: 20)
+                    .background(.quaternary)
+                    .clipShape(Circle())
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.horizontal, 16)
+        .padding(.top, 14)
+        .padding(.bottom, 6)
+    }
+
+    // MARK: - Title
+
+    private var title: some View {
+        Text(viewModel.issue.fields.summary)
+            .font(.system(size: 13, weight: .semibold))
+            .foregroundStyle(.primary)
+            .lineLimit(2)
+            .padding(.horizontal, 16)
+            .padding(.bottom, 8)
+    }
+
+    // MARK: - Metadata
+
+    private var metadata: some View {
+        HStack(spacing: 8) {
+            if let status = viewModel.issue.fields.status {
+                StatusBadge(
+                    name: status.name,
+                    categoryKey: status.statusCategory?.key
+                )
+            }
+            if let priority = viewModel.issue.fields.priority?.name {
+                PriorityBadge(name: priority)
+            }
+            if let assignee = viewModel.issue.fields.assignee?.displayName {
+                HStack(spacing: 4) {
+                    Image(systemName: "person.fill")
+                        .font(.system(size: 9))
+                    Text(assignee)
+                        .font(.system(size: 11, weight: .medium))
+                }
+                .foregroundStyle(.secondary)
+            }
+            ForEach(Array(viewModel.pullRequests.enumerated()), id: \.offset) { _, pr in
+                Button(action: { openURL(pr.url) }) {
+                    HStack(spacing: 3) {
+                        Image(systemName: "arrow.triangle.pull")
+                            .font(.system(size: 9, weight: .semibold))
+                        Text("#\(pr.number)")
+                            .font(.system(size: 11, weight: .medium, design: .monospaced))
+                    }
+                    .foregroundStyle(prColor(pr.status))
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(prColor(pr.status).opacity(0.1))
+                    .clipShape(Capsule())
+                }
+                .buttonStyle(.plain)
+                .onHover { h in if h { NSCursor.pointingHand.push() } else { NSCursor.pop() } }
+            }
+            Spacer()
+        }
+        .padding(.horizontal, 16)
+        .padding(.bottom, 10)
+    }
+
+    private func prColor(_ status: String) -> Color {
+        switch status {
+        case "MERGED": return .purple
+        case "DECLINED": return .red
+        default: return .green // OPEN
+        }
+    }
+
+    private func riskColor(_ level: String) -> Color {
+        switch level {
+        case "red": return .red
+        case "yellow": return .orange
+        default: return .green
+        }
+    }
+
+    private func openURL(_ urlString: String) {
+        guard let url = URL(string: urlString) else { return }
+        NSWorkspace.shared.open(url)
+    }
+
+    // MARK: - Summary
+
+    private var summaryContent: some View {
+        ScrollView {
+            Group {
+                if viewModel.isLoading && viewModel.summaryText.isEmpty {
+                    HStack(spacing: 8) {
+                        ProgressView()
+                            .controlSize(.small)
+                        Text("Summarizing...")
+                            .font(.system(size: 12))
+                            .foregroundStyle(.secondary)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                } else if let error = viewModel.error {
+                    Text(error)
+                        .font(.system(size: 12))
+                        .foregroundStyle(.red)
+                } else {
+                    MarkdownBlockView(text: viewModel.summaryText)
+                        .textSelection(.enabled)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+            }
+            .padding(16)
+        }
+        .frame(minHeight: 100)
+    }
+
+    // MARK: - Footer
+
+    private var footer: some View {
+        HStack {
+            if let updated = viewModel.issue.fields.updated {
+                Text("Updated \(relativeDate(updated))")
+                    .font(.system(size: 11))
+                    .foregroundStyle(.tertiary)
+            }
+            Spacer()
+
+            Button(action: copyLink) {
+                Image(systemName: copied ? "checkmark" : "link")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(.secondary)
+                    .contentTransition(.symbolEffect(.replace))
+            }
+            .buttonStyle(.plain)
+            .onHover { h in if h { NSCursor.pointingHand.push() } else { NSCursor.pop() } }
+
+            Button(action: openInJira) {
+                HStack(spacing: 4) {
+                    Text("Open in Jira")
+                    Image(systemName: "arrow.up.right")
+                }
+                .font(.system(size: 11, weight: .medium))
+                .foregroundStyle(.secondary)
+            }
+            .buttonStyle(.plain)
+            .onHover { h in if h { NSCursor.pointingHand.push() } else { NSCursor.pop() } }
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 10)
+    }
+
+    // MARK: - Helpers
+
+    private func copyLink() {
+        let domain = jiraDomain.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+        let link = "\(domain)/browse/\(viewModel.issue.key)"
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(link, forType: .string)
+        withAnimation { copied = true }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+            withAnimation { copied = false }
+        }
+    }
+
+    private func openInJira() {
+        let domain = jiraDomain.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+        guard !domain.isEmpty,
+              let url = URL(string: "\(domain)/browse/\(viewModel.issue.key)")
+        else { return }
+        NSWorkspace.shared.open(url)
+    }
+
+    private func relativeDate(_ isoString: String) -> String {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        if let date = formatter.date(from: isoString) {
+            return RelativeDateTimeFormatter().localizedString(for: date, relativeTo: Date())
+        }
+        formatter.formatOptions = [.withInternetDateTime]
+        if let date = formatter.date(from: isoString) {
+            return RelativeDateTimeFormatter().localizedString(for: date, relativeTo: Date())
+        }
+        return ""
+    }
+}
+
+// MARK: - Status Badge
+
+struct StatusBadge: View {
+    let name: String
+    let categoryKey: String?
+
+    private var color: Color {
+        switch categoryKey {
+        case "new": return .gray
+        case "indeterminate": return .blue
+        case "done": return .green
+        default: return .gray
+        }
+    }
+
+    var body: some View {
+        HStack(spacing: 4) {
+            Circle()
+                .fill(color)
+                .frame(width: 6, height: 6)
+            Text(name)
+                .font(.system(size: 11, weight: .medium))
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 3)
+        .background(color.opacity(0.12))
+        .clipShape(Capsule())
+    }
+}
+
+// MARK: - Priority Badge
+
+struct PriorityBadge: View {
+    let name: String
+
+    private var icon: String {
+        switch name.lowercased() {
+        case "highest", "critical": return "chevron.up.2"
+        case "high": return "chevron.up"
+        case "medium": return "equal"
+        case "low": return "chevron.down"
+        case "lowest": return "chevron.down.2"
+        default: return "minus"
+        }
+    }
+
+    private var color: Color {
+        switch name.lowercased() {
+        case "highest", "critical": return .red
+        case "high": return .orange
+        case "medium": return .yellow
+        case "low": return .blue
+        case "lowest": return .gray
+        default: return .gray
+        }
+    }
+
+    var body: some View {
+        HStack(spacing: 3) {
+            Image(systemName: icon)
+                .font(.system(size: 9, weight: .bold))
+            Text(name)
+                .font(.system(size: 11, weight: .medium))
+        }
+        .foregroundStyle(color)
+    }
+}
