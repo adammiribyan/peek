@@ -1,6 +1,6 @@
 APP_NAME := Peek
 BUNDLE_ID := am.adam.peek
-VERSION := 0.2.0
+VERSION := 0.2.1
 BUILD_DIR := .build/release
 APP_BUNDLE := $(BUILD_DIR)/$(APP_NAME).app
 DMG_NAME := $(APP_NAME)-$(VERSION).dmg
@@ -20,10 +20,11 @@ app:
 	mkdir -p "$(APP_BUNDLE)/Contents/Resources"
 	cp "$$(swift build -c release --show-bin-path)/$(APP_NAME)" "$(APP_BUNDLE)/Contents/MacOS/$(APP_NAME)"
 	cp Peek/Resources/AppIcon.icns "$(APP_BUNDLE)/Contents/Resources/AppIcon.icns"
-	@# KeyboardShortcuts resource bundle (copy if present)
-	@if [ -d "$$(swift build -c release --show-bin-path)/KeyboardShortcuts_KeyboardShortcuts.bundle" ]; then \
-		cp -R "$$(swift build -c release --show-bin-path)/KeyboardShortcuts_KeyboardShortcuts.bundle" "$(APP_BUNDLE)/Contents/Resources/"; \
-	fi
+	@# Assemble KeyboardShortcuts resource bundle from vendored localizations
+	mkdir -p "$(APP_BUNDLE)/Contents/Resources/KeyboardShortcuts_KeyboardShortcuts.bundle"
+	@for lproj in Dependencies/KeyboardShortcuts/Sources/KeyboardShortcuts/Localization/*.lproj; do \
+		cp -R "$$lproj" "$(APP_BUNDLE)/Contents/Resources/KeyboardShortcuts_KeyboardShortcuts.bundle/"; \
+	done
 	/usr/libexec/PlistBuddy -c "Add :CFBundleName string $(APP_NAME)" "$(APP_BUNDLE)/Contents/Info.plist"
 	/usr/libexec/PlistBuddy -c "Add :CFBundleDisplayName string $(APP_NAME)" "$(APP_BUNDLE)/Contents/Info.plist"
 	/usr/libexec/PlistBuddy -c "Add :CFBundleIdentifier string $(BUNDLE_ID)" "$(APP_BUNDLE)/Contents/Info.plist"
