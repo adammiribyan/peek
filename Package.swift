@@ -5,7 +5,7 @@ let package = Package(
     name: "Peek",
     platforms: [.macOS(.v26)],
     dependencies: [
-        .package(url: "https://github.com/sindresorhus/KeyboardShortcuts", from: "2.0.0"),
+        .package(path: "Dependencies/KeyboardShortcuts"),
     ],
     targets: [
         .executableTarget(

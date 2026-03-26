@@ -20,7 +20,10 @@ app:
 	mkdir -p "$(APP_BUNDLE)/Contents/Resources"
 	cp "$$(swift build -c release --show-bin-path)/$(APP_NAME)" "$(APP_BUNDLE)/Contents/MacOS/$(APP_NAME)"
 	cp Peek/Resources/AppIcon.icns "$(APP_BUNDLE)/Contents/Resources/AppIcon.icns"
-	cp -R "$$(swift build -c release --show-bin-path)/KeyboardShortcuts_KeyboardShortcuts.bundle" "$(APP_BUNDLE)/Contents/Resources/"
+	@# KeyboardShortcuts resource bundle (copy if present)
+	@if [ -d "$$(swift build -c release --show-bin-path)/KeyboardShortcuts_KeyboardShortcuts.bundle" ]; then \
+		cp -R "$$(swift build -c release --show-bin-path)/KeyboardShortcuts_KeyboardShortcuts.bundle" "$(APP_BUNDLE)/Contents/Resources/"; \
+	fi
 	/usr/libexec/PlistBuddy -c "Add :CFBundleName string $(APP_NAME)" "$(APP_BUNDLE)/Contents/Info.plist"
 	/usr/libexec/PlistBuddy -c "Add :CFBundleDisplayName string $(APP_NAME)" "$(APP_BUNDLE)/Contents/Info.plist"
 	/usr/libexec/PlistBuddy -c "Add :CFBundleIdentifier string $(BUNDLE_ID)" "$(APP_BUNDLE)/Contents/Info.plist"
