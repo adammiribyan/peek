@@ -62,34 +62,50 @@ struct TicketCardView: View {
 
             Spacer()
 
-            if let level = viewModel.riskLevel {
-                Button(action: {
-                    if level != "green" { showRiskPopover.toggle() }
-                }) {
-                    Circle()
-                        .fill(riskColor(level))
-                        .frame(width: 10, height: 10)
+            HStack(spacing: 8) {
+                if viewModel.isCached {
+                    Button(action: { Task { await viewModel.refreshSummary() } }) {
+                        Image(systemName: "arrow.clockwise")
+                            .font(.system(size: 10, weight: .semibold))
+                            .foregroundStyle(.secondary)
+                            .frame(width: 20, height: 20)
+                            .background(.quaternary)
+                            .clipShape(Circle())
+                    }
+                    .buttonStyle(.plain)
+                }
+
+                if let level = viewModel.riskLevel {
+                    Button(action: {
+                        if level != "green" { showRiskPopover.toggle() }
+                    }) {
+                        Circle()
+                            .fill(riskColor(level))
+                            .frame(width: 8, height: 8)
+                            .frame(width: 20, height: 20)
+                            .background(.quaternary)
+                            .clipShape(Circle())
+                    }
+                    .buttonStyle(.plain)
+                    .popover(isPresented: $showRiskPopover, arrowEdge: .bottom) {
+                        Text(viewModel.riskReason ?? "")
+                            .font(.system(size: 12))
+                            .padding(10)
+                            .frame(maxWidth: 260)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+
+                Button(action: onClose) {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundStyle(.secondary)
+                        .frame(width: 20, height: 20)
+                        .background(.quaternary)
+                        .clipShape(Circle())
                 }
                 .buttonStyle(.plain)
-                .popover(isPresented: $showRiskPopover, arrowEdge: .bottom) {
-                    Text(viewModel.riskReason ?? "")
-                        .font(.system(size: 12))
-                        .padding(10)
-                        .frame(maxWidth: 260)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-                .padding(.trailing, 4)
             }
-
-            Button(action: onClose) {
-                Image(systemName: "xmark")
-                    .font(.system(size: 10, weight: .semibold))
-                    .foregroundStyle(.secondary)
-                    .frame(width: 20, height: 20)
-                    .background(.quaternary)
-                    .clipShape(Circle())
-            }
-            .buttonStyle(.plain)
         }
         .padding(.horizontal, 16)
         .padding(.top, 14)
@@ -255,7 +271,9 @@ struct TicketCardView: View {
                         .font(.system(size: 12))
                         .foregroundStyle(.red)
                 } else {
-                    MarkdownBlockView(text: viewModel.summaryText)
+                    MarkdownBlockView(text: viewModel.summaryText, onTicketTap: { key in
+                        onOpenTicket?(key)
+                    })
                         .textSelection(.enabled)
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }

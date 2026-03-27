@@ -2,6 +2,7 @@ import SwiftUI
 
 struct MarkdownBlockView: View {
     let text: String
+    var onTicketTap: ((String) -> Void)?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
@@ -9,6 +10,13 @@ struct MarkdownBlockView: View {
                 blockView(block)
             }
         }
+        .environment(\.openURL, OpenURLAction { url in
+            if url.scheme == "peek", let key = url.host {
+                onTicketTap?(key)
+                return .handled
+            }
+            return .systemAction
+        })
     }
 
     // MARK: - Block types
@@ -68,9 +76,32 @@ struct MarkdownBlockView: View {
     // MARK: - Inline markdown (bold, italic, code, links)
 
     private func inline(_ text: String) -> AttributedString {
-        (try? AttributedString(markdown: text, options: .init(
+        var result = (try? AttributedString(markdown: text, options: .init(
             interpretedSyntax: .inlineOnlyPreservingWhitespace
         ))) ?? AttributedString(text)
+
+        // Linkify Jira ticket keys (e.g. MP-819, DEVOPS-123)
+        let plain = String(result.characters)
+        var searchStart = plain.startIndex
+        while searchStart < plain.endIndex {
+            guard let range = plain.range(
+                of: #"[A-Z]{1,10}-\d{1,6}"#,
+                options: .regularExpression,
+                range: searchStart..<plain.endIndex
+            ) else { break }
+
+            let key = String(plain[range])
+            let attrStart = AttributedString.Index(range.lowerBound, within: result)!
+            let attrEnd = AttributedString.Index(range.upperBound, within: result)!
+            result[attrStart..<attrEnd].link = URL(string: "peek://\(key)")
+            result[attrStart..<attrEnd].foregroundColor = .blue
+            result[attrStart..<attrEnd].font = .system(size: 11, weight: .medium, design: .monospaced)
+            result[attrStart..<attrEnd].cursor = .pointingHand
+
+            searchStart = range.upperBound
+        }
+
+        return result
     }
 
     // MARK: - Parser
