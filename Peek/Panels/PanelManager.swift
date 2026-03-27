@@ -1,4 +1,5 @@
 import AppKit
+import PostHog
 import SwiftUI
 
 @MainActor
@@ -14,6 +15,9 @@ final class PanelManager {
         let domain = UserDefaults.standard.string(forKey: "jiraDomain") ?? ""
         let email = UserDefaults.standard.string(forKey: "jiraEmail") ?? ""
         let token = KeychainService.shared.read(for: .jiraApiToken) ?? ""
+        if PostHogSDK.shared.isFeatureEnabled("baseten_inference") {
+            return !domain.isEmpty && !email.isEmpty && !token.isEmpty
+        }
         let apiKey = KeychainService.shared.read(for: .anthropicApiKey) ?? ""
         return !domain.isEmpty && !email.isEmpty && !token.isEmpty && !apiKey.isEmpty
     }

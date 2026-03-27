@@ -60,6 +60,7 @@ struct TicketPanelView: View {
             }
         }
         .glassEffect(in: .rect(cornerRadius: 16))
+        .padding(2)
         .onExitCommand { onDismiss() }
         .onKeyPress(phases: .down) { press in
             if press.characters == "," && press.modifiers == .command {

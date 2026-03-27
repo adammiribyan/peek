@@ -63,6 +63,7 @@ final class TicketViewModel {
                 "ticket_key": issue.key,
                 "duration_ms": Int(Date().timeIntervalSince(start) * 1000),
                 "cached": false,
+                "model": summaryService.activeModel,
             ])
         } catch {
             self.error = error.localizedDescription
@@ -86,6 +87,7 @@ final class TicketViewModel {
         PostHogSDK.shared.capture("risk_assessed", properties: [
             "ticket_key": issue.key,
             "level": result.level,
+            "model": summaryService.activeModel,
         ])
 
         // Cache everything together
