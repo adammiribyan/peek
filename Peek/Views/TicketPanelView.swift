@@ -51,7 +51,6 @@ struct TicketPanelView: View {
             case .card(let vm):
                 TicketCardView(
                     viewModel: vm,
-                    jiraDomain: UserDefaults.standard.string(forKey: "jiraDomain") ?? "",
                     onClose: onDismiss,
                     onOpenTicket: onOpenLinkedTicket
                 )

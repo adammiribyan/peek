@@ -6,7 +6,7 @@ struct TicketCardView: View {
     @State private var showRiskPopover = false
     @State private var copied = false
     @Environment(\.accessibilityDifferentiateWithoutColor) private var differentiateWithoutColor
-    let jiraDomain: String
+    private var jiraDomain: String { OAuthService.shared.siteURL ?? "" }
     let onClose: () -> Void
     var onOpenTicket: ((String) -> Void)?
 

@@ -8,13 +8,13 @@ DMG_NAME := $(APP_NAME)-$(VERSION).dmg
 .PHONY: build run clean app dmg secrets
 
 secrets:
-	@if [ -z "$$PEEK_APP_TOKEN" ]; then \
+	@if [ -z "$$PEEK_APP_TOKEN" ] || [ -z "$$PEEK_JIRA_SECRET" ]; then \
 		if [ ! -f Peek/Secrets.swift ] || grep -q REPLACE_ME Peek/Secrets.swift; then \
-			echo "⚠ Set PEEK_APP_TOKEN env var or edit Peek/Secrets.swift"; \
+			echo "⚠ Set PEEK_APP_TOKEN + PEEK_JIRA_SECRET env vars or edit Peek/Secrets.swift"; \
 			exit 1; \
 		fi; \
 	else \
-		echo 'enum Secrets { static let appToken = "'"$$PEEK_APP_TOKEN"'" }' > Peek/Secrets.swift; \
+		printf 'enum Secrets {\n    static let appToken = "%s"\n    static let jiraClientSecret = "%s"\n}\n' "$$PEEK_APP_TOKEN" "$$PEEK_JIRA_SECRET" > Peek/Secrets.swift; \
 	fi
 
 build: secrets
@@ -41,6 +41,11 @@ app: secrets
 	/usr/libexec/PlistBuddy -c "Add :LSUIElement bool true" "$(APP_BUNDLE)/Contents/Info.plist"
 	/usr/libexec/PlistBuddy -c "Add :LSMinimumSystemVersion string 26.0" "$(APP_BUNDLE)/Contents/Info.plist"
 	/usr/libexec/PlistBuddy -c "Add :CFBundleIconFile string AppIcon" "$(APP_BUNDLE)/Contents/Info.plist"
+	/usr/libexec/PlistBuddy -c "Add :CFBundleURLTypes array" "$(APP_BUNDLE)/Contents/Info.plist"
+	/usr/libexec/PlistBuddy -c "Add :CFBundleURLTypes:0 dict" "$(APP_BUNDLE)/Contents/Info.plist"
+	/usr/libexec/PlistBuddy -c "Add :CFBundleURLTypes:0:CFBundleURLName string $(BUNDLE_ID)" "$(APP_BUNDLE)/Contents/Info.plist"
+	/usr/libexec/PlistBuddy -c "Add :CFBundleURLTypes:0:CFBundleURLSchemes array" "$(APP_BUNDLE)/Contents/Info.plist"
+	/usr/libexec/PlistBuddy -c "Add :CFBundleURLTypes:0:CFBundleURLSchemes:0 string peek" "$(APP_BUNDLE)/Contents/Info.plist"
 	codesign --sign - --force --deep "$(APP_BUNDLE)"
 	@echo "✓ $(APP_BUNDLE)"
 

@@ -24,8 +24,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
         config.errorTrackingConfig.autoCapture = true
         PostHogSDK.shared.setup(config)
 
-        if let email = UserDefaults.standard.string(forKey: "jiraEmail"), !email.isEmpty {
-            PostHogSDK.shared.identify(email, userProperties: ["email": email])
+        if let siteName = OAuthService.shared.siteName {
+            PostHogSDK.shared.identify(siteName, userProperties: ["site": siteName])
         }
 
         NSApp.setActivationPolicy(.accessory)
@@ -40,6 +40,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
 
         Task {
             updateAvailable = await UpdateService.shared.checkForUpdate()
+        }
+    }
+
+    func application(_ application: NSApplication, open urls: [URL]) {
+        for url in urls {
+            if url.scheme == "peek" && url.host == "oauth-callback" {
+                Task {
+                    do {
+                        try await OAuthService.shared.handleCallback(url: url)
+                    } catch {
+                        let alert = NSAlert()
+                        alert.messageText = "Couldn't connect to Jira"
+                        alert.informativeText = error.localizedDescription
+                        alert.addButton(withTitle: "OK")
+                        alert.runModal()
+                    }
+                }
+            }
         }
     }
 

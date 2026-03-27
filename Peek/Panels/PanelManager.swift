@@ -12,14 +12,12 @@ final class PanelManager {
     let summaryService = SummaryService()
 
     var isConfigured: Bool {
-        let domain = UserDefaults.standard.string(forKey: "jiraDomain") ?? ""
-        let email = UserDefaults.standard.string(forKey: "jiraEmail") ?? ""
-        let token = KeychainService.shared.read(for: .jiraApiToken) ?? ""
+        guard OAuthService.shared.isConnected else { return false }
         if PostHogSDK.shared.isFeatureEnabled("baseten_inference") {
-            return !domain.isEmpty && !email.isEmpty && !token.isEmpty
+            return true
         }
         let apiKey = KeychainService.shared.read(for: .anthropicApiKey) ?? ""
-        return !domain.isEmpty && !email.isEmpty && !token.isEmpty && !apiKey.isEmpty
+        return !apiKey.isEmpty
     }
 
     // MARK: - Search (always creates a new panel)

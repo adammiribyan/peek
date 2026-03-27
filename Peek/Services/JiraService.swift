@@ -12,9 +12,9 @@ enum JiraError: LocalizedError {
 
     var errorDescription: String? {
         switch self {
-        case .noCredentials: return "Set up your Jira account first (⌘,)"
+        case .noCredentials: return "Connect your Jira account first (⌘,)"
         case .invalidURL: return "That Jira URL doesn't look right. Check Settings."
-        case .unauthorized: return "Jira didn't accept those credentials. Check Settings."
+        case .unauthorized: return "Your Jira session expired. Reconnect in Settings."
         case .forbidden: return "You don't have access to this ticket."
         case .notFound(let key): return "Couldn't find \(key). Check the ticket number?"
         case .serverError(let code): return "Jira returned an error (\(code)). Try again?"
@@ -33,38 +33,40 @@ enum JiraError: LocalizedError {
 }
 
 final class JiraService {
-    private let keychain = KeychainService.shared
+    private let oauth = OAuthService.shared
 
-    func fetchIssue(key: String) async throws -> JiraIssue {
-        let domain = UserDefaults.standard.string(forKey: "jiraDomain") ?? ""
-        let email = UserDefaults.standard.string(forKey: "jiraEmail") ?? ""
-        guard let token = keychain.read(for: .jiraApiToken),
-              !domain.isEmpty, !email.isEmpty, !token.isEmpty else {
-            throw JiraError.noCredentials
-        }
-
-        let cleanDomain = domain
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-            .trimmingCharacters(in: CharacterSet(charactersIn: "/"))
-
-        let fields = "summary,status,assignee,reporter,priority,description,comment,issuetype,project,created,updated,issuelinks"
-        let urlString = "\(cleanDomain)/rest/api/3/issue/\(key)?fields=\(fields)"
-
-        guard let url = URL(string: urlString) else {
-            throw JiraError.invalidURL
-        }
-
+    private func authorizedRequest(url: URL) async throws -> URLRequest {
+        let token = try await oauth.validAccessToken()
         var request = URLRequest(url: url)
         request.timeoutInterval = 10
-        let credentials = "\(email):\(token)"
-        let encoded = Data(credentials.utf8).base64EncodedString()
-        request.setValue("Basic \(encoded)", forHTTPHeaderField: "Authorization")
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         request.setValue("application/json", forHTTPHeaderField: "Accept")
+        return request
+    }
+
+    private func apiBase() throws -> String {
+        guard let cloudId = oauth.cloudId else {
+            throw JiraError.noCredentials
+        }
+        return "https://api.atlassian.com/ex/jira/\(cloudId)"
+    }
+
+    func fetchIssue(key: String) async throws -> JiraIssue {
+        let base = try apiBase()
+        let fields = "summary,status,assignee,reporter,priority,description,comment,issuetype,project,created,updated,issuelinks"
+        guard let url = URL(string: "\(base)/rest/api/3/issue/\(key)?fields=\(fields)") else {
+            throw JiraError.invalidURL
+        }
 
         let data: Data
         let response: URLResponse
         do {
+            let request = try await authorizedRequest(url: url)
             (data, response) = try await URLSession.shared.data(for: request)
+        } catch let error as JiraError {
+            throw error
+        } catch is OAuthError {
+            throw JiraError.unauthorized
         } catch {
             throw JiraError.networkError(error)
         }
@@ -89,28 +91,12 @@ final class JiraService {
     }
 
     func fetchProjects() async throws -> [String] {
-        let domain = UserDefaults.standard.string(forKey: "jiraDomain") ?? ""
-        let email = UserDefaults.standard.string(forKey: "jiraEmail") ?? ""
-        guard let token = keychain.read(for: .jiraApiToken),
-              !domain.isEmpty, !email.isEmpty, !token.isEmpty else {
-            throw JiraError.noCredentials
-        }
-
-        let cleanDomain = domain
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-            .trimmingCharacters(in: CharacterSet(charactersIn: "/"))
-
-        guard let url = URL(string: "\(cleanDomain)/rest/api/3/project") else {
+        let base = try apiBase()
+        guard let url = URL(string: "\(base)/rest/api/3/project") else {
             throw JiraError.invalidURL
         }
 
-        var request = URLRequest(url: url)
-        request.timeoutInterval = 10
-        let credentials = "\(email):\(token)"
-        let encoded = Data(credentials.utf8).base64EncodedString()
-        request.setValue("Basic \(encoded)", forHTTPHeaderField: "Authorization")
-        request.setValue("application/json", forHTTPHeaderField: "Accept")
-
+        let request = try await authorizedRequest(url: url)
         let (data, response) = try await URLSession.shared.data(for: request)
 
         guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
@@ -131,29 +117,12 @@ final class JiraService {
     }
 
     func fetchPullRequests(issueId: String) async -> [PullRequest] {
-        let domain = UserDefaults.standard.string(forKey: "jiraDomain") ?? ""
-        let email = UserDefaults.standard.string(forKey: "jiraEmail") ?? ""
-        guard let token = keychain.read(for: .jiraApiToken),
-              !domain.isEmpty, !email.isEmpty, !token.isEmpty else { return [] }
-
-        let cleanDomain = domain
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-            .trimmingCharacters(in: CharacterSet(charactersIn: "/"))
-
-        let urlString = "\(cleanDomain)/rest/dev-status/latest/issue/detail?issueId=\(issueId)&applicationType=GitHub&dataType=pullrequest"
-        guard let url = URL(string: urlString) else { return [] }
-
-        var request = URLRequest(url: url)
-        request.timeoutInterval = 10
-        let credentials = "\(email):\(token)"
-        let encoded = Data(credentials.utf8).base64EncodedString()
-        request.setValue("Basic \(encoded)", forHTTPHeaderField: "Authorization")
-        request.setValue("application/json", forHTTPHeaderField: "Accept")
-
-        guard let (data, response) = try? await URLSession.shared.data(for: request),
+        guard let base = try? apiBase(),
+              let url = URL(string: "\(base)/rest/dev-status/latest/issue/detail?issueId=\(issueId)&applicationType=GitHub&dataType=pullrequest"),
+              let request = try? await authorizedRequest(url: url),
+              let (data, response) = try? await URLSession.shared.data(for: request),
               let http = response as? HTTPURLResponse, http.statusCode == 200 else { return [] }
 
-        // Parse: { "detail": [{ "pullRequests": [{ "id": "#123", "url": "...", "status": "..." }] }] }
         guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
               let details = json["detail"] as? [[String: Any]] else { return [] }
 
@@ -164,7 +133,6 @@ final class JiraService {
                 guard let prUrl = pr["url"] as? String else { continue }
                 let prId = pr["id"] as? String ?? ""
                 let status = pr["status"] as? String ?? "OPEN"
-                // Extract number from id ("#123") or from URL
                 let number = prId.hasPrefix("#") ? String(prId.dropFirst()) : extractPRNumber(from: prUrl)
                 prs.append(PullRequest(number: number, url: prUrl, status: status))
             }
@@ -173,7 +141,6 @@ final class JiraService {
     }
 
     private func extractPRNumber(from url: String) -> String {
-        // https://github.com/org/repo/pull/123 → "123"
         guard let lastSlash = url.lastIndex(of: "/") else { return "" }
         return String(url[url.index(after: lastSlash)...])
     }
