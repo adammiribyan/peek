@@ -1,7 +1,7 @@
 <h1 align="center">Peek</h1>
 
 <p align="center">
-  Instant AI-powered Jira ticket summaries from your menu bar.
+  Instant AI-powered Jira ticket summaries from your menu bar
 </p>
 
 <p align="center">
