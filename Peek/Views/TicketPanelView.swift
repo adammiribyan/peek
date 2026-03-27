@@ -28,7 +28,18 @@ struct TicketPanelView: View {
     @State private var error: String?
     @State private var shakeOffset: CGFloat = 0
     @State private var didAutoSubmit = false
+    @State private var submitScale: CGFloat = 1.0
+    @State private var submitGlow: Double = 0
+    @State private var placeholderIndex = 0
+    @State private var placeholderOpacity: Double = 1
     @FocusState private var focusedField: FocusField?
+
+    private static let placeholders = [
+        "Search tickets...",
+        "Try PROJ-123",
+        "Or just start typing a project",
+        "Search tickets...",
+    ]
 
     private enum FocusField { case project, number }
 
@@ -58,7 +69,10 @@ struct TicketPanelView: View {
             }
         }
         .clipShape(.rect(cornerRadius: 16))
-        .glassEffect(in: .rect(cornerRadius: 16))
+        .glassEffect(.regular.interactive(), in: .rect(cornerRadius: 16))
+        .shadow(color: submitGlowColor.opacity(submitGlow * 0.6), radius: 20 + submitGlow * 15)
+        .shadow(color: submitGlowColor.opacity(submitGlow * 0.3), radius: 40 + submitGlow * 30)
+        .scaleEffect(submitScale)
         .onExitCommand { onDismiss() }
         .task { await loadProjects() }
     }
@@ -67,10 +81,10 @@ struct TicketPanelView: View {
 
     private var searchContent: some View {
         HStack(spacing: 0) {
-            Image(systemName: error != nil ? "exclamationmark.circle.fill" : "magnifyingglass")
-                .font(.system(size: 16, weight: .medium))
-                .foregroundStyle(error != nil ? .red : .secondary)
-                .padding(.trailing, 10)
+            Image(systemName: "magnifyingglass")
+                .font(.system(size: 20, weight: .medium))
+                .foregroundStyle(.secondary)
+                .padding(.trailing, 12)
 
             if let project = matchedProject {
                 lockedProjectField(project)
@@ -85,14 +99,18 @@ struct TicketPanelView: View {
                     .controlSize(.small)
             } else if let error {
                 Text(error)
-                    .font(.system(size: 11))
+                    .font(.system(size: 12))
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
                     .truncationMode(.tail)
+            } else {
+                Text("⌘⇧J")
+                    .font(.system(size: 12, weight: .medium, design: .rounded))
+                    .foregroundStyle(.quaternary)
             }
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 12)
+        .padding(.horizontal, 18)
+        .padding(.vertical, 16)
         .offset(x: shakeOffset)
         .onAppear {
             focusedField = .project
@@ -106,6 +124,37 @@ struct TicketPanelView: View {
                     rawInput = key
                 }
                 submitKey(key)
+            }
+        }
+    }
+
+    // MARK: - Project chip color
+
+    private var projectChipColor: Color {
+        guard let project = matchedProject else { return .blue }
+        return Self.colorForProject(project)
+    }
+
+    private var submitGlowColor: Color { projectChipColor }
+
+    private static func colorForProject(_ key: String) -> Color {
+        let colors: [Color] = [.blue, .purple, .indigo, .teal, .cyan, .mint, .orange, .pink]
+        let hash = key.unicodeScalars.reduce(0) { $0 &+ Int($1.value) }
+        return colors[abs(hash) % colors.count]
+    }
+
+    // MARK: - Submit animation
+
+    private func playSubmitAnimation() {
+        withAnimation(.spring(duration: 0.15, bounce: 0)) {
+            submitScale = 0.96
+            submitGlow = 1.0
+        } completion: {
+            withAnimation(.spring(duration: 0.3, bounce: 0.2)) {
+                submitScale = 1.0
+            }
+            withAnimation(.easeOut(duration: 0.5)) {
+                submitGlow = 0
             }
         }
     }
@@ -129,21 +178,21 @@ struct TicketPanelView: View {
     private func lockedProjectField(_ project: String) -> some View {
         HStack(spacing: 0) {
             Text(project)
-                .font(.system(size: 12, weight: .semibold, design: .monospaced))
+                .font(.system(size: 14, weight: .semibold, design: .monospaced))
                 .foregroundStyle(.white)
-                .padding(.horizontal, 7)
-                .padding(.vertical, 3)
-                .background(.blue)
-                .clipShape(.rect(cornerRadius: 5))
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .background(projectChipColor)
+                .clipShape(.rect(cornerRadius: 6))
 
             Text("–")
-                .font(.system(size: 16))
+                .font(.system(size: 20))
                 .foregroundStyle(.tertiary)
-                .padding(.horizontal, 3)
+                .padding(.horizontal, 4)
 
             TextField("number", text: $numberInput)
                 .textFieldStyle(.plain)
-                .font(.system(size: 16))
+                .font(.system(size: 20))
                 .focused($focusedField, equals: .number)
                 .onSubmit(submit)
                 .onKeyPress(.delete) {
@@ -162,13 +211,21 @@ struct TicketPanelView: View {
         ZStack(alignment: .leading) {
             if let match = bestMatch, !rawInput.isEmpty {
                 Text(match)
-                    .font(.system(size: 16))
+                    .font(.system(size: 20))
                     .foregroundStyle(isUniqueMatch ? .tertiary : .quaternary)
             }
 
-            TextField("Search tickets...", text: $rawInput)
+            if rawInput.isEmpty {
+                Text(Self.placeholders[placeholderIndex])
+                    .font(.system(size: 20))
+                    .foregroundStyle(.tertiary)
+                    .opacity(placeholderOpacity)
+                    .allowsHitTesting(false)
+            }
+
+            TextField("", text: $rawInput)
                 .textFieldStyle(.plain)
-                .font(.system(size: 16))
+                .font(.system(size: 20))
                 .focused($focusedField, equals: .project)
                 .onChange(of: rawInput) { _, newValue in handleInputChange(newValue) }
                 .onSubmit(submit)
@@ -179,6 +236,18 @@ struct TicketPanelView: View {
                     }
                     return .ignored
                 }
+        }
+        .task { await cyclePlaceholders() }
+    }
+
+    private func cyclePlaceholders() async {
+        while !Task.isCancelled {
+            try? await Task.sleep(for: .seconds(3))
+            guard rawInput.isEmpty, matchedProject == nil else { continue }
+            withAnimation(.easeOut(duration: 0.2)) { placeholderOpacity = 0 }
+            try? await Task.sleep(for: .milliseconds(200))
+            placeholderIndex = (placeholderIndex + 1) % Self.placeholders.count
+            withAnimation(.easeIn(duration: 0.2)) { placeholderOpacity = 1 }
         }
     }
 
@@ -258,6 +327,7 @@ struct TicketPanelView: View {
         PostHogSDK.shared.capture("search_initiated", properties: ["ticket_key": ticketKey])
 
         Task {
+            playSubmitAnimation()
             do {
                 let issue = try await jiraService.fetchIssue(key: ticketKey)
                 PostHogSDK.shared.capture("ticket_viewed", properties: [
