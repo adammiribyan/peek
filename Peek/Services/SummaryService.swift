@@ -316,6 +316,8 @@ Rules:
         return """
 Brutally honest Jira ticket risk assessor. Be critical — most tickets have SOME issue. Only mark "green" if genuinely healthy.
 
+Completed tickets (Done, Closed, Resolved, Released) are inherently low-risk — judge them leniently. Staleness doesn't matter if the work is finished.
+
 RED — any of:
 - Active status (In Progress / In Development / In Review) and last update > 14 days ago
 - High/Highest priority but stale (no update in 7+ days)
@@ -328,7 +330,7 @@ YELLOW — any of:
 - Scope changes mentioned in comments
 - Medium priority with no update in 7+ days
 
-GREEN — only if:
+GREEN — any of:
 - Recently updated (within 5 days)
 - Clear description with acceptance criteria
 - Low comment churn
