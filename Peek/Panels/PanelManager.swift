@@ -49,7 +49,7 @@ final class PanelManager {
         panel.onOpenSettings = { [weak self] in self?.openSettings() }
         panel.installKeyMonitor()
 
-        let searchSize = NSSize(width: 360, height: 52)
+        let searchSize = NSSize(width: 360, height: 60)
 
         // Restore last search bar position (saved as top-left), or center near top
         let savedX = UserDefaults.standard.double(forKey: "searchBarX")
@@ -124,7 +124,7 @@ final class PanelManager {
         let panel = FloatingPanel() { view }
         panel.onOpenSettings = { [weak self] in self?.openSettings() }
         panel.installKeyMonitor()
-        let searchSize = NSSize(width: 360, height: 52)
+        let searchSize = NSSize(width: 360, height: 60)
 
         // Position offset from current key window
         if let screen = NSScreen.main {
