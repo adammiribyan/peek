@@ -2,7 +2,7 @@ import Foundation
 import Observation
 import PostHog
 
-@Observable
+@MainActor @Observable
 final class TicketViewModel {
     let issue: JiraIssue
     var summaryText: String = ""
@@ -23,7 +23,6 @@ final class TicketViewModel {
         self.jiraService = jiraService
     }
 
-    @MainActor
     func loadSummary() async {
         if PostHogSDK.shared.isFeatureEnabled("summary_cache"),
            let cached = cache.get(key: issue.key, updatedAt: issue.fields.updated) {
@@ -38,7 +37,6 @@ final class TicketViewModel {
         await fetchSummary()
     }
 
-    @MainActor
     func refreshSummary() async {
         isCached = false
         isLoading = true
@@ -49,9 +47,8 @@ final class TicketViewModel {
         await loadRiskAssessment()
     }
 
-    @MainActor
     private func fetchSummary() async {
-        let start = Date()
+        let start = Date.now
         do {
             for try await chunk in summaryService.streamSummary(issue: issue) {
                 summaryText += chunk
@@ -61,7 +58,7 @@ final class TicketViewModel {
             cache.set(key: issue.key, summary: summaryText, riskLevel: "", riskReason: "", updatedAt: issue.fields.updated)
             PostHogSDK.shared.capture("summary_loaded", properties: [
                 "ticket_key": issue.key,
-                "duration_ms": Int(Date().timeIntervalSince(start) * 1000),
+                "duration_ms": Int(Date.now.timeIntervalSince(start) * 1000),
                 "cached": false,
                 "model": summaryService.activeModel,
             ])
@@ -71,12 +68,10 @@ final class TicketViewModel {
         }
     }
 
-    @MainActor
     func loadPullRequests() async {
         pullRequests = await jiraService.fetchPullRequests(issueId: issue.id)
     }
 
-    @MainActor
     func loadRiskAssessment() async {
         // Skip if already loaded from cache
         if isCached && riskLevel != nil { return }

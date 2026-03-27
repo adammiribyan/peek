@@ -7,6 +7,7 @@ struct CachedSummary: Codable {
     let updatedAt: String // Jira's updated timestamp — cache key
 }
 
+@MainActor
 final class SummaryCacheService {
     static let shared = SummaryCacheService()
     private init() { cache = Self.load() }

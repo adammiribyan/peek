@@ -284,7 +284,7 @@ final class SummaryService {
     // MARK: - Risk Prompt
 
     private func riskPrompt() -> String {
-        let today = ISO8601DateFormatter().string(from: Date())
+        let today = ISO8601DateFormatter().string(from: .now)
         return """
         You are a brutally honest Jira ticket risk assessor. Today is \(today). You must be critical — most tickets have SOME issue. Only mark "green" if the ticket is genuinely healthy with recent activity.
 

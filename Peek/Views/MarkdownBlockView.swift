@@ -91,8 +91,12 @@ struct MarkdownBlockView: View {
             ) else { break }
 
             let key = String(plain[range])
-            let attrStart = AttributedString.Index(range.lowerBound, within: result)!
-            let attrEnd = AttributedString.Index(range.upperBound, within: result)!
+            guard let attrStart = AttributedString.Index(range.lowerBound, within: result),
+                  let attrEnd = AttributedString.Index(range.upperBound, within: result)
+            else {
+                searchStart = range.upperBound
+                continue
+            }
             result[attrStart..<attrEnd].link = URL(string: "peek://\(key)")
             result[attrStart..<attrEnd].foregroundColor = .blue
             result[attrStart..<attrEnd].font = .system(size: 11, weight: .medium, design: .monospaced)

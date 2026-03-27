@@ -59,7 +59,7 @@ struct TicketPanelView: View {
                 .frame(width: 420)
             }
         }
-        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .clipShape(.rect(cornerRadius: 16))
         .glassEffect(in: .rect(cornerRadius: 16))
         .onExitCommand { onDismiss() }
         .onKeyPress(phases: .down) { press in
@@ -122,14 +122,13 @@ struct TicketPanelView: View {
     // MARK: - Shake animation
 
     private func shake() {
-        withAnimation(.interpolatingSpring(stiffness: 600, damping: 12)) { shakeOffset = 8 }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.08) {
+        Task { @MainActor in
+            withAnimation(.interpolatingSpring(stiffness: 600, damping: 12)) { shakeOffset = 8 }
+            try? await Task.sleep(for: .milliseconds(80))
             withAnimation(.interpolatingSpring(stiffness: 600, damping: 12)) { shakeOffset = -6 }
-        }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.16) {
+            try? await Task.sleep(for: .milliseconds(80))
             withAnimation(.interpolatingSpring(stiffness: 600, damping: 12)) { shakeOffset = 0 }
-        }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
+            try? await Task.sleep(for: .seconds(3))
             withAnimation { error = nil }
         }
     }
@@ -144,7 +143,7 @@ struct TicketPanelView: View {
                 .padding(.horizontal, 7)
                 .padding(.vertical, 3)
                 .background(.blue)
-                .clipShape(RoundedRectangle(cornerRadius: 5))
+                .clipShape(.rect(cornerRadius: 5))
 
             Text("–")
                 .font(.system(size: 16))
@@ -232,12 +231,11 @@ struct TicketPanelView: View {
     }
 
     private func focusNumber(seed: String = "") {
-        DispatchQueue.main.async {
+        Task { @MainActor in
             focusedField = .number
             if !seed.isEmpty {
-                DispatchQueue.main.async {
-                    numberInput = seed
-                }
+                try? await Task.sleep(for: .milliseconds(10))
+                numberInput = seed
             }
         }
     }
@@ -283,7 +281,8 @@ struct TicketPanelView: View {
                     }
                     isLoading = false
                 }
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                Task { @MainActor in
+                    try? await Task.sleep(for: .milliseconds(50))
                     onMorphToCard(ticketKey)
                 }
             } catch {
@@ -303,6 +302,10 @@ struct TicketPanelView: View {
     // MARK: - Load projects
 
     private func loadProjects() async {
-        do { projects = try await jiraService.fetchProjects() } catch {}
+        do {
+            projects = try await jiraService.fetchProjects()
+        } catch {
+            self.error = "Failed to load projects"
+        }
     }
 }

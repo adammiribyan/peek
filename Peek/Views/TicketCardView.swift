@@ -2,7 +2,7 @@ import PostHog
 import SwiftUI
 
 struct TicketCardView: View {
-    @State var viewModel: TicketViewModel
+    let viewModel: TicketViewModel
     @State private var showRiskPopover = false
     @State private var copied = false
     let jiraDomain: String
@@ -57,21 +57,22 @@ struct TicketCardView: View {
                     .padding(.horizontal, 6)
                     .padding(.vertical, 2)
                     .background(.quaternary)
-                    .clipShape(Capsule())
+                    .clipShape(.capsule)
             }
 
             Spacer()
 
             HStack(spacing: 8) {
                 if viewModel.isCached {
-                    Button(action: { Task { await viewModel.refreshSummary() } }) {
-                        Image(systemName: "arrow.clockwise")
-                            .font(.system(size: 10, weight: .semibold))
-                            .foregroundStyle(.secondary)
-                            .frame(width: 20, height: 20)
-                            .background(.quaternary)
-                            .clipShape(Circle())
+                    Button("Refresh", systemImage: "arrow.clockwise") {
+                        Task { await viewModel.refreshSummary() }
                     }
+                    .labelStyle(.iconOnly)
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundStyle(.secondary)
+                    .frame(width: 20, height: 20)
+                    .background(.quaternary)
+                    .clipShape(.circle)
                     .buttonStyle(.plain)
                 }
 
@@ -84,9 +85,10 @@ struct TicketCardView: View {
                             .frame(width: 8, height: 8)
                             .frame(width: 20, height: 20)
                             .background(.quaternary)
-                            .clipShape(Circle())
+                            .clipShape(.circle)
                     }
                     .buttonStyle(.plain)
+                    .accessibilityLabel("Risk: \(level)")
                     .popover(isPresented: $showRiskPopover, arrowEdge: .bottom) {
                         Text(viewModel.riskReason ?? "")
                             .font(.system(size: 12))
@@ -96,15 +98,14 @@ struct TicketCardView: View {
                     }
                 }
 
-                Button(action: onClose) {
-                    Image(systemName: "xmark")
-                        .font(.system(size: 10, weight: .semibold))
-                        .foregroundStyle(.secondary)
-                        .frame(width: 20, height: 20)
-                        .background(.quaternary)
-                        .clipShape(Circle())
-                }
-                .buttonStyle(.plain)
+                Button("Close", systemImage: "xmark", action: onClose)
+                    .labelStyle(.iconOnly)
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundStyle(.secondary)
+                    .frame(width: 20, height: 20)
+                    .background(.quaternary)
+                    .clipShape(.circle)
+                    .buttonStyle(.plain)
             }
         }
         .padding(.horizontal, 16)
@@ -137,14 +138,10 @@ struct TicketCardView: View {
                 PriorityBadge(name: priority)
             }
             if let assignee = viewModel.issue.fields.assignee?.displayName {
-                HStack(spacing: 4) {
-                    Image(systemName: "person.fill")
-                        .font(.system(size: 9))
-                    Text(assignee)
-                        .font(.system(size: 11, weight: .medium))
-                }
-                .foregroundStyle(.secondary)
-                .lineLimit(1)
+                Label(assignee, systemImage: "person.fill")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
             }
             ForEach(Array(viewModel.pullRequests.prefix(2).enumerated()), id: \.offset) { _, pr in
                 Button(action: {
@@ -164,7 +161,7 @@ struct TicketCardView: View {
                     .padding(.horizontal, 6)
                     .padding(.vertical, 2)
                     .background(prColor(pr.status).opacity(0.1))
-                    .clipShape(Capsule())
+                    .clipShape(.capsule)
                 }
                 .buttonStyle(.plain)
                 .onHover { h in if h { NSCursor.pointingHand.push() } else { NSCursor.pop() } }
@@ -294,14 +291,13 @@ struct TicketCardView: View {
             }
             Spacer()
 
-            Button(action: copyLink) {
-                Image(systemName: copied ? "checkmark" : "link")
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(.secondary)
-                    .contentTransition(.symbolEffect(.replace))
-            }
-            .buttonStyle(.plain)
-            .onHover { h in if h { NSCursor.pointingHand.push() } else { NSCursor.pop() } }
+            Button("Copy Link", systemImage: copied ? "checkmark" : "link", action: copyLink)
+                .labelStyle(.iconOnly)
+                .font(.system(size: 11, weight: .medium))
+                .foregroundStyle(.secondary)
+                .contentTransition(.symbolEffect(.replace))
+                .buttonStyle(.plain)
+                .onHover { h in if h { NSCursor.pointingHand.push() } else { NSCursor.pop() } }
 
             Button(action: openInJira) {
                 HStack(spacing: 4) {
@@ -327,7 +323,8 @@ struct TicketCardView: View {
         NSPasteboard.general.setString(link, forType: .string)
         PostHogSDK.shared.capture("link_copied", properties: ["ticket_key": viewModel.issue.key])
         withAnimation { copied = true }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+        Task { @MainActor in
+            try? await Task.sleep(for: .seconds(2))
             withAnimation { copied = false }
         }
     }
@@ -341,84 +338,27 @@ struct TicketCardView: View {
         NSWorkspace.shared.open(url)
     }
 
+    private static let isoFormatter: ISO8601DateFormatter = {
+        let f = ISO8601DateFormatter()
+        f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return f
+    }()
+
+    private static let isoFormatterNoFractional: ISO8601DateFormatter = {
+        let f = ISO8601DateFormatter()
+        f.formatOptions = [.withInternetDateTime]
+        return f
+    }()
+
+    private static let relativeFormatter = RelativeDateTimeFormatter()
+
     private func relativeDate(_ isoString: String) -> String {
-        let formatter = ISO8601DateFormatter()
-        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        if let date = formatter.date(from: isoString) {
-            return RelativeDateTimeFormatter().localizedString(for: date, relativeTo: Date())
+        if let date = Self.isoFormatter.date(from: isoString) {
+            return Self.relativeFormatter.localizedString(for: date, relativeTo: .now)
         }
-        formatter.formatOptions = [.withInternetDateTime]
-        if let date = formatter.date(from: isoString) {
-            return RelativeDateTimeFormatter().localizedString(for: date, relativeTo: Date())
+        if let date = Self.isoFormatterNoFractional.date(from: isoString) {
+            return Self.relativeFormatter.localizedString(for: date, relativeTo: .now)
         }
         return ""
-    }
-}
-
-// MARK: - Status Badge
-
-struct StatusBadge: View {
-    let name: String
-    let categoryKey: String?
-
-    private var color: Color {
-        switch categoryKey {
-        case "new": return .gray
-        case "indeterminate": return .blue
-        case "done": return .green
-        default: return .gray
-        }
-    }
-
-    var body: some View {
-        HStack(spacing: 4) {
-            Circle()
-                .fill(color)
-                .frame(width: 6, height: 6)
-            Text(name)
-                .font(.system(size: 11, weight: .medium))
-        }
-        .padding(.horizontal, 8)
-        .padding(.vertical, 3)
-        .background(color.opacity(0.12))
-        .clipShape(Capsule())
-    }
-}
-
-// MARK: - Priority Badge
-
-struct PriorityBadge: View {
-    let name: String
-
-    private var icon: String {
-        switch name.lowercased() {
-        case "highest", "critical": return "chevron.up.2"
-        case "high": return "chevron.up"
-        case "medium": return "equal"
-        case "low": return "chevron.down"
-        case "lowest": return "chevron.down.2"
-        default: return "minus"
-        }
-    }
-
-    private var color: Color {
-        switch name.lowercased() {
-        case "highest", "critical": return .red
-        case "high": return .orange
-        case "medium": return .yellow
-        case "low": return .blue
-        case "lowest": return .gray
-        default: return .gray
-        }
-    }
-
-    var body: some View {
-        HStack(spacing: 3) {
-            Image(systemName: icon)
-                .font(.system(size: 9, weight: .bold))
-            Text(name)
-                .font(.system(size: 11, weight: .medium))
-        }
-        .foregroundStyle(color)
     }
 }
