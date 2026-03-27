@@ -12,6 +12,12 @@
 
 <br />
 
+<p align="center">
+  <img src="assets/demo.gif" alt="Peek demo" width="640" />
+</p>
+
+<br />
+
 Hit **⌘⇧J** from anywhere, type a ticket number, and get an AI-generated summary in a floating card — without switching windows or opening a browser.
 
 Open multiple tickets. Click linked issues to follow the thread. Every ticket gets a risk assessment. It just works.
