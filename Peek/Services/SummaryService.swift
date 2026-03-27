@@ -135,17 +135,25 @@ Rules:
         }
     }
 
+    private static let isoFormatter: ISO8601DateFormatter = {
+        let f = ISO8601DateFormatter()
+        f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return f
+    }()
+
+    private static let isoFormatterNoFractional: ISO8601DateFormatter = {
+        let f = ISO8601DateFormatter()
+        f.formatOptions = [.withInternetDateTime]
+        return f
+    }()
+
     private func riskUserMessage(issue: JiraIssue) -> String {
         var text = issue.toPromptText()
         if let updated = issue.fields.updated {
-            let fmt = ISO8601DateFormatter()
-            fmt.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-            let date = fmt.date(from: updated) ?? {
-                fmt.formatOptions = [.withInternetDateTime]
-                return fmt.date(from: updated)
-            }()
+            let date = Self.isoFormatter.date(from: updated)
+                ?? Self.isoFormatterNoFractional.date(from: updated)
             if let date {
-                let days = Int(Date().timeIntervalSince(date) / 86400)
+                let days = Int(Date.now.timeIntervalSince(date) / 86400)
                 text += "\n\nNOTE: This ticket was last updated \(days) day\(days == 1 ? "" : "s") ago."
             }
         }

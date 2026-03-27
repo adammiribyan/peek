@@ -213,7 +213,7 @@ struct TicketCardView: View {
                             .padding(.horizontal, 6)
                             .padding(.vertical, 2)
                             .background(.blue.opacity(0.08))
-                            .clipShape(RoundedRectangle(cornerRadius: 4))
+                            .clipShape(.rect(cornerRadius: 4))
                     }
                     .buttonStyle(.plain)
                     .help("\(link.label) \(link.key): \(link.summary)")
