@@ -20,7 +20,18 @@
 
 Hit **⌘⇧J** from anywhere, type a ticket number, and get an AI-generated summary in a floating card — without switching windows or opening a browser.
 
-Open multiple tickets. Click linked issues to follow the thread. Every ticket gets a risk assessment. It just works.
+Open multiple tickets. Click linked issues to follow the thread. Every ticket gets a risk assessment dot. It just works.
+
+## Features
+
+- **AI summaries** — streaming markdown summaries powered by Claude, with smart caching
+- **Risk assessment** — green/yellow/red dot on every ticket based on scope, complexity, and status
+- **Linked issues** — compact chips showing blocked-by, relates-to, and other Jira links; click to open
+- **PR status** — see linked pull requests and their review state
+- **Project autocomplete** — type a project prefix and tab-complete from your Jira projects
+- **Multiple panels** — open as many tickets as you want, each in its own floating glass panel
+- **Jira OAuth 2.0** — secure three-legged OAuth flow, no API tokens to manage
+- **Auto-updates** — checks GitHub Releases and prompts when a new version is available
 
 ## Install
 
@@ -30,7 +41,7 @@ Download the latest [DMG from Releases](https://github.com/adammiribyan/peek/rel
 xattr -cr /Applications/Peek.app
 ```
 
-On first launch, enter your Jira domain, email, and [API token](https://id.atlassian.com/manage-profile/security/api-tokens).
+On first launch, click "Connect to Jira" to authorize via OAuth.
 
 ## Build from source
 
@@ -40,7 +51,11 @@ cd peek
 make run
 ```
 
-Requires Swift 6.2+ and macOS 26.
+Requires Swift 6.2+ and macOS 26. You'll need to set `PEEK_APP_TOKEN` and `PEEK_JIRA_SECRET` environment variables (or edit `Peek/Secrets.swift` directly — see `Secrets.swift.example`).
+
+## Privacy
+
+Peek sends ticket data to Anthropic (Claude) for summarization. No data is used for model training. You must grant explicit consent before any data leaves your machine, and you can revoke it at any time. See [PRIVACY.md](PRIVACY.md) for full details.
 
 ## License
 
