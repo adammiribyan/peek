@@ -13,7 +13,7 @@
 <br />
 
 <p align="center">
-  <img src="assets/demo.gif" alt="Peek demo" width="640" />
+  <img src="assets/demo.gif" alt="Peek demo" width="960" />
 </p>
 
 <br />
