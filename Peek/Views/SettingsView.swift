@@ -46,9 +46,10 @@ struct SettingsView: View {
 
                 Section {
                     LabeledContent("Search Tickets") {
-                        Text("⌘⇧J")
-                            .font(.system(size: 13, design: .monospaced))
+                        Text("⌘  ⇧  J")
+                            .font(.system(size: 13, weight: .medium))
                             .foregroundStyle(.secondary)
+                            .tracking(1)
                     }
                 } header: {
                     Label("Shortcut", systemImage: "keyboard")
