@@ -10,6 +10,7 @@ struct SettingsView: View {
     @State private var testResult: TestResult?
     @State private var isTesting = false
     @State private var loaded = false
+    @State private var useBaseten = PostHogSDK.shared.isFeatureEnabled("baseten_inference")
 
     let onSaveAndClose: (() -> Void)?
 
@@ -34,14 +35,16 @@ struct SettingsView: View {
                     Label("Jira", systemImage: "server.rack")
                 }
 
-                Section {
-                    SecureField("API Key", text: $anthropicKey, prompt: Text("sk-ant-..."))
-                    Link(destination: URL(string: "https://console.anthropic.com/settings/keys")!) {
-                        Label("Get your API key from Anthropic →", systemImage: "arrow.up.right")
-                            .font(.system(size: 11))
+                if !useBaseten {
+                    Section {
+                        SecureField("API Key", text: $anthropicKey, prompt: Text("sk-ant-..."))
+                        Link(destination: URL(string: "https://console.anthropic.com/settings/keys")!) {
+                            Label("Get your API key from Anthropic →", systemImage: "arrow.up.right")
+                                .font(.system(size: 11))
+                        }
+                    } header: {
+                        Label("Claude", systemImage: "brain")
                     }
-                } header: {
-                    Label("Claude", systemImage: "brain")
                 }
 
                 Section {
@@ -84,6 +87,12 @@ struct SettingsView: View {
         .fixedSize(horizontal: false, vertical: true)
         .background(.clear)
         .containerBackground(.clear, for: .window)
+        .task {
+            PostHogSDK.shared.reloadFeatureFlags()
+            // Brief delay to allow flags to arrive
+            try? await Task.sleep(for: .milliseconds(500))
+            useBaseten = PostHogSDK.shared.isFeatureEnabled("baseten_inference")
+        }
         .onAppear {
             guard !loaded else { return }
             loaded = true
