@@ -28,7 +28,7 @@ final class SummaryService {
 
     private let proxyURL = URL(string: "https://peek-llm-proxy.adam-c75.workers.dev")!
     private let basetenModel = "deepseek-ai/DeepSeek-V3.1"
-    private let appToken = "REDACTED"
+    private let appToken = Secrets.appToken
 
     private let systemPrompt = """
         You are a concise Jira ticket summarizer. Given raw ticket data, produce a markdown summary.

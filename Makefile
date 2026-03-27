@@ -5,15 +5,25 @@ BUILD_DIR := .build/release
 APP_BUNDLE := $(BUILD_DIR)/$(APP_NAME).app
 DMG_NAME := $(APP_NAME)-$(VERSION).dmg
 
-.PHONY: build run clean app dmg
+.PHONY: build run clean app dmg secrets
 
-build:
+secrets:
+	@if [ -z "$$PEEK_APP_TOKEN" ]; then \
+		if [ ! -f Peek/Secrets.swift ] || grep -q REPLACE_ME Peek/Secrets.swift; then \
+			echo "⚠ Set PEEK_APP_TOKEN env var or edit Peek/Secrets.swift"; \
+			exit 1; \
+		fi; \
+	else \
+		echo 'enum Secrets { static let appToken = "'"$$PEEK_APP_TOKEN"'" }' > Peek/Secrets.swift; \
+	fi
+
+build: secrets
 	swift build
 
 run: build
 	"$$(swift build --show-bin-path)/$(APP_NAME)"
 
-app:
+app: secrets
 	swift build -c release
 	rm -rf "$(APP_BUNDLE)"
 	mkdir -p "$(APP_BUNDLE)/Contents/MacOS"

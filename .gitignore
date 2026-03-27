@@ -5,3 +5,5 @@ xcuserdata/
 DerivedData/
 .DS_Store
 worker/node_modules/
+Peek/Secrets.swift
+.claude/settings.local.json
