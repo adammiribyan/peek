@@ -31,19 +31,23 @@ final class SummaryService {
     private let appToken = Secrets.appToken
 
     private let systemPrompt = """
-        You are a concise Jira ticket summarizer. Given raw ticket data, produce a markdown summary.
-        Do NOT repeat the ticket title as a heading (the UI already shows it).
+Concise Jira ticket summarizer for a team lead. Given raw ticket data, produce a markdown summary.
 
-        Start with a short paragraph (2-4 sentences) explaining the ticket's purpose, scope, and key requirements.
+Rules:
+- Do NOT repeat the ticket title (the UI already shows it)
+- Start with 1-3 sentences: what's being done, why, and current state
+- Focus on what matters to a team lead: scope, blockers, decisions, ownership
+- Preserve ticket keys exactly (e.g. PROJ-123) — they become clickable links
+- Omit code blocks and implementation details unless they're the core point
+- If comments contain meaningful context (decisions, blockers, scope changes), add:
 
-        If comments contain meaningful context (decisions, blockers, updates, questions), add a section:
+## Discussion
+- Key point from comments
+- Another key point
 
-        ## Discussion
-        - bullet points here
-
-        Skip the Discussion section entirely if comments add nothing beyond the description.
-        Be terse and direct. No filler.
-        """
+- Skip Discussion if comments add nothing beyond the description
+- Be terse. No filler.
+"""
 
     // MARK: - Summary
 
@@ -131,10 +135,27 @@ final class SummaryService {
         }
     }
 
+    private func riskUserMessage(issue: JiraIssue) -> String {
+        var text = issue.toPromptText()
+        if let updated = issue.fields.updated {
+            let fmt = ISO8601DateFormatter()
+            fmt.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+            let date = fmt.date(from: updated) ?? {
+                fmt.formatOptions = [.withInternetDateTime]
+                return fmt.date(from: updated)
+            }()
+            if let date {
+                let days = Int(Date().timeIntervalSince(date) / 86400)
+                text += "\n\nNOTE: This ticket was last updated \(days) day\(days == 1 ? "" : "s") ago."
+            }
+        }
+        return text
+    }
+
     private func assessRiskBaseten(issue: JiraIssue) async -> (level: String, reason: String) {
         let messages: [[String: Any]] = [
             ["role": "system", "content": riskPrompt()],
-            ["role": "user", "content": issue.toPromptText()],
+            ["role": "user", "content": riskUserMessage(issue: issue)],
         ]
         let request = makeBasetenRequest(messages: messages, maxTokens: 100, stream: false)
 
@@ -252,7 +273,7 @@ final class SummaryService {
             "max_tokens": 100,
             "stream": false,
             "system": riskPrompt(),
-            "messages": [["role": "user", "content": issue.toPromptText()]],
+            "messages": [["role": "user", "content": riskUserMessage(issue: issue)]],
         ]
 
         guard let httpBody = try? JSONSerialization.data(withJSONObject: body) else {
@@ -284,35 +305,31 @@ final class SummaryService {
     // MARK: - Risk Prompt
 
     private func riskPrompt() -> String {
-        let today = ISO8601DateFormatter().string(from: .now)
         return """
-        You are a brutally honest Jira ticket risk assessor. Today is \(today). You must be critical — most tickets have SOME issue. Only mark "green" if the ticket is genuinely healthy with recent activity.
+Brutally honest Jira ticket risk assessor. Be critical — most tickets have SOME issue. Only mark "green" if genuinely healthy.
 
-        ## Rules (apply strictly)
+RED — any of:
+- Active status (In Progress / In Development / In Review) and last update > 14 days ago
+- High/Highest priority but stale (no update in 7+ days)
+- Unassigned while in an active status
+- Comments indicating confusion, disagreement, or blocked state
 
-        RED — any of:
-        - Status is "In Progress" / "In Development" / "In Review" and last update > 14 days ago
-        - High/Highest priority but stale (no update in 7+ days)
-        - Unassigned while in an active status
-        - Multiple comments indicating confusion, disagreement, or blocked state
+YELLOW — any of:
+- Last update 5-14 days ago on an active ticket
+- No acceptance criteria or vague 1-2 sentence description
+- Scope changes mentioned in comments
+- Medium priority with no update in 7+ days
 
-        YELLOW — any of:
-        - Last update 5-14 days ago on an active ticket
-        - No acceptance criteria or vague 1-2 sentence description
-        - 5+ comments (indicates churn or complexity)
-        - Scope changes mentioned in comments
-        - Medium priority with no update in 7+ days
+GREEN — only if:
+- Recently updated (within 5 days)
+- Clear description with acceptance criteria
+- Low comment churn
+- Status matches expected progress
 
-        GREEN — only if:
-        - Recently updated (within 5 days)
-        - Clear description with acceptance criteria
-        - Low comment churn
-        - Status matches expected progress
+Respond with ONLY valid JSON, nothing else:
+{"level": "yellow", "reason": "No update in 9 days, vague description"}
 
-        Respond with ONLY valid JSON, nothing else:
-        {"level": "red", "reason": "In Development for 18 days with no update"}
-
-        level: "green", "yellow", or "red". reason: under 15 words, specific.
-        """
+level: "green", "yellow", or "red". reason: under 15 words, specific.
+"""
     }
 }

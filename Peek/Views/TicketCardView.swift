@@ -139,6 +139,7 @@ struct TicketCardView: View {
             }
             if let assignee = viewModel.issue.fields.assignee?.displayName {
                 Label(assignee, systemImage: "person.fill")
+                    .labelIconToTitleSpacing(4)
                     .font(.system(size: 11, weight: .medium))
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
@@ -197,30 +198,26 @@ struct TicketCardView: View {
     @ViewBuilder
     private var linkedIssues: some View {
         if !links.isEmpty {
-            VStack(alignment: .leading, spacing: 4) {
+            FlowLayout(spacing: 6) {
                 ForEach(Array(links.enumerated()), id: \.offset) { _, link in
-                    HStack(spacing: 4) {
-                        Text(link.label)
-                            .font(.system(size: 10))
-                            .foregroundStyle(.tertiary)
-                        Button(action: {
-                            PostHogSDK.shared.capture("linked_ticket_opened", properties: [
-                                "from_key": viewModel.issue.key,
-                                "to_key": link.key,
-                            ])
-                            onOpenTicket?(link.key)
-                        }) {
-                            Text(link.key)
-                                .font(.system(size: 11, weight: .medium, design: .monospaced))
-                                .foregroundStyle(.blue)
-                        }
-                        .buttonStyle(.plain)
-                        .onHover { h in if h { NSCursor.pointingHand.push() } else { NSCursor.pop() } }
-                        Text(link.summary)
-                            .font(.system(size: 10))
-                            .foregroundStyle(.secondary)
-                            .lineLimit(1)
+                    Button(action: {
+                        PostHogSDK.shared.capture("linked_ticket_opened", properties: [
+                            "from_key": viewModel.issue.key,
+                            "to_key": link.key,
+                        ])
+                        onOpenTicket?(link.key)
+                    }) {
+                        Text(link.key)
+                            .font(.system(size: 10, weight: .medium, design: .monospaced))
+                            .foregroundStyle(.blue)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(.blue.opacity(0.08))
+                            .clipShape(RoundedRectangle(cornerRadius: 4))
                     }
+                    .buttonStyle(.plain)
+                    .help("\(link.label) \(link.key): \(link.summary)")
+                    .onHover { h in if h { NSCursor.pointingHand.push() } else { NSCursor.pop() } }
                 }
             }
             .padding(.horizontal, 16)
