@@ -98,8 +98,8 @@ final class PanelManager {
         let newFrame = NSRect(x: newX, y: newY, width: cardWidth, height: cardHeight)
 
         NSAnimationContext.runAnimationGroup { ctx in
-            ctx.duration = 0.25
-            ctx.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+            ctx.duration = 0.3
+            ctx.timingFunction = CAMediaTimingFunction(controlPoints: 0.2, 0.9, 0.3, 1.05)
             panel.animator().setFrame(newFrame, display: true)
         }
     }

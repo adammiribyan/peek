@@ -276,7 +276,7 @@ struct TicketPanelView: View {
                 ])
                 let vm = TicketViewModel(issue: issue, summaryService: summaryService, jiraService: jiraService)
                 await MainActor.run {
-                    withAnimation(.easeInOut(duration: 0.2)) {
+                    withAnimation(.snappy(duration: 0.3)) {
                         phase = .card(vm)
                     }
                     isLoading = false
