@@ -1,6 +1,6 @@
 import SwiftUI
 
-let appVersion = "0.5.1"
+let appVersion = "0.6.0"
 
 @main
 struct PeekApp: App {
