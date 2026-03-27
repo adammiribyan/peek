@@ -18,13 +18,17 @@ final class FloatingPanel: NSPanel {
         collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         isOpaque = false
         backgroundColor = .clear
-        hasShadow = false
+        hasShadow = true
         hidesOnDeactivate = false
         isMovableByWindowBackground = true
         animationBehavior = .utilityWindow
 
-        let hostingView = NSHostingView(rootView: content())
+        let hostingView = NSHostingView(rootView: content().background(.clear))
         hostingView.sizingOptions = [.intrinsicContentSize]
+        hostingView.wantsLayer = true
+        hostingView.layer?.backgroundColor = .clear
+        hostingView.layer?.cornerRadius = 16
+        hostingView.layer?.masksToBounds = true
         contentView = hostingView
 
         setContentSize(hostingView.fittingSize)

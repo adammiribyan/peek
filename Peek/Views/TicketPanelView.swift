@@ -59,8 +59,8 @@ struct TicketPanelView: View {
                 .frame(width: 420)
             }
         }
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
         .glassEffect(in: .rect(cornerRadius: 16))
-        .padding(2)
         .onExitCommand { onDismiss() }
         .onKeyPress(phases: .down) { press in
             if press.characters == "," && press.modifiers == .command {
