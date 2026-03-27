@@ -15,8 +15,8 @@ final class SummaryCacheService {
     private var cache: [String: CachedSummary] // keyed by ticket key
 
     private static var fileURL: URL {
-        let dir = FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent("Library/Application Support/am.adam.peek", isDirectory: true)
+        let dir = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+            .appendingPathComponent("am.adam.peek", isDirectory: true)
         return dir.appendingPathComponent("summary_cache.json")
     }
 

@@ -1,14 +1,15 @@
 import Foundation
+import Security
 
 enum KeychainKey: String {
     case jiraApiToken = "jira-api-token"
     case anthropicApiKey = "anthropic-api-key"
+    case oauthAccessToken = "oauth-access-token"
+    case oauthRefreshToken = "oauth-refresh-token"
 }
 
-/// Stores credentials in the macOS login Keychain via `/usr/bin/security`.
-/// Using the system `security` tool avoids ACL/entitlement issues with
-/// ad-hoc signed SPM executables — the tool's code signature is stable
-/// across app rebuilds so Keychain never prompts.
+/// Stores credentials in the macOS Keychain using the native Security framework.
+/// Sandbox-compatible — no subprocess calls.
 final class KeychainService {
     static let shared = KeychainService()
     private init() {}
@@ -16,60 +17,70 @@ final class KeychainService {
     private let service = "am.adam.peek"
 
     func save(_ value: String, for key: KeychainKey) throws {
-        // Delete existing (ignore errors — item may not exist)
-        security(["delete-generic-password", "-s", service, "-a", key.rawValue])
+        guard let data = value.data(using: .utf8) else { return }
 
-        // Add new item. -U = update if exists, -w = password value
-        let result = security([
-            "add-generic-password",
-            "-s", service,
-            "-a", key.rawValue,
-            "-w", value,
-        ])
-        guard result.status == 0 else {
-            throw KeychainError.failed(result.output)
+        let query = baseQuery(for: key)
+
+        // Try to update existing item first
+        let attributes: [String: Any] = [kSecValueData as String: data]
+        let updateStatus = SecItemUpdate(query as CFDictionary, attributes as CFDictionary)
+
+        if updateStatus == errSecSuccess { return }
+
+        if updateStatus == errSecItemNotFound {
+            // Item doesn't exist — add it
+            var addQuery = query
+            addQuery[kSecValueData as String] = data
+            addQuery[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlock
+            let addStatus = SecItemAdd(addQuery as CFDictionary, nil)
+            guard addStatus == errSecSuccess else {
+                throw KeychainError.failed(addStatus)
+            }
+            return
         }
+
+        throw KeychainError.failed(updateStatus)
     }
 
     func read(for key: KeychainKey) -> String? {
-        // -w = output only the password
-        let result = security([
-            "find-generic-password",
-            "-s", service,
-            "-a", key.rawValue,
-            "-w",
-        ])
-        guard result.status == 0 else { return nil }
-        let value = result.output.trimmingCharacters(in: .whitespacesAndNewlines)
-        return value.isEmpty ? nil : value
+        var query = baseQuery(for: key)
+        query[kSecReturnData as String] = true
+        query[kSecMatchLimit as String] = kSecMatchLimitOne
+
+        var result: AnyObject?
+        let status = SecItemCopyMatching(query as CFDictionary, &result)
+        guard status == errSecSuccess, let data = result as? Data else { return nil }
+        let value = String(data: data, encoding: .utf8)
+        return (value?.isEmpty == true) ? nil : value
     }
 
     func delete(for key: KeychainKey) {
-        security(["delete-generic-password", "-s", service, "-a", key.rawValue])
+        SecItemDelete(baseQuery(for: key) as CFDictionary)
     }
 
-    @discardableResult
-    private func security(_ args: [String]) -> (status: Int32, output: String) {
-        let process = Process()
-        let pipe = Pipe()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/security")
-        process.arguments = args
-        process.standardOutput = pipe
-        process.standardError = pipe
-        do { try process.run() } catch { return (-1, error.localizedDescription) }
-        process.waitUntilExit()
-        let data = pipe.fileHandleForReading.readDataToEndOfFile()
-        return (process.terminationStatus, String(data: data, encoding: .utf8) ?? "")
+    private func baseQuery(for key: KeychainKey) -> [String: Any] {
+        [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: service,
+            kSecAttrAccount as String: key.rawValue,
+        ]
     }
 }
 
 enum KeychainError: LocalizedError {
-    case failed(String)
+    case failed(OSStatus)
 
     var errorDescription: String? {
         switch self {
-        case .failed(let detail):
-            return "Keychain error: \(detail)"
+        case .failed(let status):
+            switch status {
+            case errSecInteractionNotAllowed:
+                return "Keychain locked — unlock your Mac and try again"
+            case errSecAuthFailed:
+                return "Keychain access denied — check app signing"
+            default:
+                return "Keychain error (\(status))"
+            }
         }
     }
 }
