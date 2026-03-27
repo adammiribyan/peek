@@ -104,8 +104,8 @@ struct SettingsView: View {
 
                 Spacer()
 
-                Button("Save") { saveAndClose() }
-                    .keyboardShortcut("s", modifiers: .command)
+                Button("Done") { saveAndClose() }
+                    .keyboardShortcut(.return, modifiers: .command)
                     .buttonStyle(.borderedProminent)
             }
             .padding(.horizontal, 20)

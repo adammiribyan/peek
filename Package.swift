@@ -16,6 +16,7 @@ let package = Package(
                 .product(name: "PostHog", package: "posthog-ios"),
             ],
             path: "Peek",
+            exclude: ["Peek.entitlements", "Resources/AppIcon.icns", "Secrets.swift.example"],
             swiftSettings: [.swiftLanguageMode(.v5)]
         ),
     ]

@@ -100,7 +100,6 @@ struct MarkdownBlockView: View {
             result[attrStart..<attrEnd].link = URL(string: "peek://\(key)")
             result[attrStart..<attrEnd].foregroundColor = .blue
             result[attrStart..<attrEnd].font = .system(size: 11, weight: .medium, design: .monospaced)
-            result[attrStart..<attrEnd].cursor = .pointingHand
 
             searchStart = range.upperBound
         }

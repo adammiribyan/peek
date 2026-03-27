@@ -48,7 +48,7 @@ actor OAuthService {
         ]
 
         if let url = components.url {
-            DispatchQueue.main.async {
+            Task { @MainActor in
                 NSWorkspace.shared.open(url)
             }
         }
@@ -221,14 +221,5 @@ enum OAuthError: LocalizedError {
         case .notConnected: return "Connect your Jira account first (⌘,)"
         case .noSites: return "No Jira sites found for this account."
         }
-    }
-}
-
-private extension Data {
-    func base64URLEncoded() -> String {
-        base64EncodedString()
-            .replacingOccurrences(of: "+", with: "-")
-            .replacingOccurrences(of: "/", with: "_")
-            .replacingOccurrences(of: "=", with: "")
     }
 }
