@@ -40,9 +40,6 @@ final class PanelManager {
             onMorphToCard: { [weak self] key in
                 self?.morphToCard(id: id, ticketKey: key)
             },
-            onOpenSettings: { [weak self] in
-                self?.openSettings()
-            },
             onOpenLinkedTicket: { [weak self] key in
                 self?.openTicketDirectly(key: key)
             },
@@ -51,6 +48,8 @@ final class PanelManager {
 
         let panel = FloatingPanel() { view }
         panel.dismissesOnResignKey = true
+        panel.onOpenSettings = { [weak self] in self?.openSettings() }
+        panel.installKeyMonitor()
 
         let searchSize = NSSize(width: 360, height: 52)
 
@@ -120,12 +119,13 @@ final class PanelManager {
             summaryService: summaryService,
             onDismiss: { [weak self] in self?.closePanel(id: id) },
             onMorphToCard: { [weak self] key in self?.morphToCard(id: id, ticketKey: key) },
-            onOpenSettings: { [weak self] in self?.openSettings() },
             onOpenLinkedTicket: { [weak self] k in self?.openTicketDirectly(key: k) },
             autoSubmitKey: key
         )
 
         let panel = FloatingPanel() { view }
+        panel.onOpenSettings = { [weak self] in self?.openSettings() }
+        panel.installKeyMonitor()
         let searchSize = NSSize(width: 360, height: 52)
 
         // Position offset from current key window

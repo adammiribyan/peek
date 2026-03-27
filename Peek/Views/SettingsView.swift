@@ -10,6 +10,7 @@ struct SettingsView: View {
     @State private var testResult: TestResult?
     @State private var isTesting = false
     @State private var loaded = false
+    @State private var aiConsentGranted = AIConsentService.shared.hasValidConsent
     @State private var useBaseten = PostHogSDK.shared.isFeatureEnabled("baseten_inference")
 
     let onSaveAndClose: (() -> Void)?
@@ -26,9 +27,9 @@ struct SettingsView: View {
                 Section {
                     TextField("Domain", text: $jiraDomain, prompt: Text("https://company.atlassian.net"))
                     TextField("Email", text: $jiraEmail, prompt: Text("you@company.com"))
-                    SecureField("API Token", text: $jiraToken, prompt: Text("Paste your Jira API token"))
+                    SecureField("API Token", text: $jiraToken, prompt: Text("Paste token here"))
                     Link(destination: URL(string: "https://id.atlassian.com/manage-profile/security/api-tokens")!) {
-                        Label("Get your API token from Atlassian →", systemImage: "arrow.up.right")
+                        Label("Create a token on Atlassian →", systemImage: "arrow.up.right")
                             .font(.system(size: 11))
                     }
                 } header: {
@@ -39,7 +40,7 @@ struct SettingsView: View {
                     Section {
                         SecureField("API Key", text: $anthropicKey, prompt: Text("sk-ant-..."))
                         Link(destination: URL(string: "https://console.anthropic.com/settings/keys")!) {
-                            Label("Get your API key from Anthropic →", systemImage: "arrow.up.right")
+                            Label("Create a key on Anthropic →", systemImage: "arrow.up.right")
                                 .font(.system(size: 11))
                         }
                     } header: {
@@ -56,6 +57,31 @@ struct SettingsView: View {
                     }
                 } header: {
                     Label("Shortcut", systemImage: "keyboard")
+                }
+
+                Section {
+                    LabeledContent("Summaries") {
+                        if aiConsentGranted {
+                            Label("On", systemImage: "checkmark.circle.fill")
+                                .foregroundStyle(.green)
+                                .font(.system(size: 12))
+                        } else {
+                            Text("Off")
+                                .foregroundStyle(.secondary)
+                                .font(.system(size: 12))
+                        }
+                    }
+                    if aiConsentGranted {
+                        Button("Turn off AI summaries") {
+                            AIConsentService.shared.revokeConsent()
+                            withAnimation { aiConsentGranted = false }
+                        }
+                    }
+                    Text("Ticket details are sent to an AI to write summaries. Nothing is stored.")
+                        .font(.system(size: 10))
+                        .foregroundStyle(.tertiary)
+                } header: {
+                    Label("AI", systemImage: "sparkles")
                 }
             }
             .formStyle(.grouped)
@@ -160,7 +186,7 @@ struct SettingsView: View {
 
             guard let url = URL(string: "\(domain)/rest/api/3/myself") else {
                 await MainActor.run {
-                    testResult = .failure("Invalid URL")
+                    testResult = .failure("That URL doesn't look right")
                     isTesting = false
                 }
                 return
@@ -178,10 +204,10 @@ struct SettingsView: View {
                 let (_, response) = try await URLSession.shared.data(for: request)
                 await MainActor.run {
                     if let http = response as? HTTPURLResponse, http.statusCode == 200 {
-                        testResult = .success("Connected")
+                        testResult = .success("Looks good!")
                         PostHogSDK.shared.capture("test_connection", properties: ["result": "success"])
                     } else {
-                        testResult = .failure("Auth failed")
+                        testResult = .failure("Wrong credentials")
                         PostHogSDK.shared.capture("test_connection", properties: ["result": "auth_failed"])
                     }
                 }

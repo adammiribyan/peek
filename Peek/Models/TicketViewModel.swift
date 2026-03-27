@@ -8,6 +8,7 @@ final class TicketViewModel {
     var summaryText: String = ""
     var isLoading: Bool = true
     var isCached: Bool = false
+    var needsConsent: Bool = false
     var error: String?
     var pullRequests: [JiraService.PullRequest] = []
     var riskLevel: String?
@@ -16,6 +17,7 @@ final class TicketViewModel {
     private let summaryService: SummaryService
     private let jiraService: JiraService
     private let cache = SummaryCacheService.shared
+    private let consent = AIConsentService.shared
 
     init(issue: JiraIssue, summaryService: SummaryService, jiraService: JiraService) {
         self.issue = issue
@@ -24,6 +26,12 @@ final class TicketViewModel {
     }
 
     func loadSummary() async {
+        guard consent.hasValidConsent else {
+            needsConsent = true
+            isLoading = false
+            return
+        }
+
         if PostHogSDK.shared.isFeatureEnabled("summary_cache"),
            let cached = cache.get(key: issue.key, updatedAt: issue.fields.updated) {
             summaryText = cached.summary
@@ -37,7 +45,24 @@ final class TicketViewModel {
         await fetchSummary()
     }
 
+    func grantConsentAndLoad() async {
+        consent.recordConsent()
+        needsConsent = false
+        isLoading = true
+        await fetchSummary()
+        await loadRiskAssessment()
+    }
+
     func refreshSummary() async {
+        guard consent.hasValidConsent else {
+            summaryText = ""
+            riskLevel = nil
+            riskReason = nil
+            isCached = false
+            needsConsent = true
+            isLoading = false
+            return
+        }
         isCached = false
         isLoading = true
         summaryText = ""
@@ -54,8 +79,8 @@ final class TicketViewModel {
                 summaryText += chunk
             }
             isLoading = false
-            // Save to cache immediately (risk will update it later)
-            cache.set(key: issue.key, summary: summaryText, riskLevel: "", riskReason: "", updatedAt: issue.fields.updated)
+            if riskLevel == nil { riskLevel = "green" }
+            cache.set(key: issue.key, summary: summaryText, riskLevel: riskLevel ?? "green", riskReason: riskReason ?? "", updatedAt: issue.fields.updated)
             PostHogSDK.shared.capture("summary_loaded", properties: [
                 "ticket_key": issue.key,
                 "duration_ms": Int(Date.now.timeIntervalSince(start) * 1000),
@@ -73,7 +98,7 @@ final class TicketViewModel {
     }
 
     func loadRiskAssessment() async {
-        // Skip if already loaded from cache
+        guard consent.hasValidConsent else { return }
         if isCached && riskLevel != nil { return }
 
         let result = await summaryService.assessRisk(issue: issue)
@@ -85,7 +110,6 @@ final class TicketViewModel {
             "model": summaryService.activeModel,
         ])
 
-        // Cache everything together
         cache.set(
             key: issue.key,
             summary: summaryText,

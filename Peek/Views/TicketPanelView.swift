@@ -8,7 +8,6 @@ struct TicketPanelView: View {
     let summaryService: SummaryService
     let onDismiss: () -> Void
     let onMorphToCard: (String) -> Void
-    let onOpenSettings: () -> Void
     let onOpenLinkedTicket: ((String) -> Void)?
     let autoSubmitKey: String?
 
@@ -62,13 +61,6 @@ struct TicketPanelView: View {
         .clipShape(.rect(cornerRadius: 16))
         .glassEffect(in: .rect(cornerRadius: 16))
         .onExitCommand { onDismiss() }
-        .onKeyPress(phases: .down) { press in
-            if press.characters == "," && press.modifiers == .command {
-                onOpenSettings()
-                return .handled
-            }
-            return .ignored
-        }
         .task { await loadProjects() }
     }
 

@@ -8,9 +8,9 @@ enum SummaryError: LocalizedError {
 
     var errorDescription: String? {
         switch self {
-        case .noApiKey: return "API key not configured. Open Settings."
-        case .apiError(let code, let msg): return msg ?? "LLM service error (HTTP \(code))."
-        case .streamError(let err): return err.localizedDescription
+        case .noApiKey: return "Add your API key in Settings (⌘,)"
+        case .apiError(_, let msg): return msg ?? "The AI service hit a snag. Try again?"
+        case .streamError: return "Summary got interrupted. Try refreshing."
         }
     }
 }
@@ -110,7 +110,7 @@ Rules:
                             errorBody += line
                             if errorBody.count > 500 { break }
                         }
-                        throw SummaryError.apiError(http.statusCode, "LLM service error (\(http.statusCode))")
+                        throw SummaryError.apiError(http.statusCode, "AI service error (\(http.statusCode)). Try again?")
                     }
 
                     for try await line in bytes.lines {
@@ -236,7 +236,7 @@ Rules:
                             errorBody += line
                             if errorBody.count > 500 { break }
                         }
-                        throw SummaryError.apiError(http.statusCode, "Claude API error (\(http.statusCode))")
+                        throw SummaryError.apiError(http.statusCode, "AI service error (\(http.statusCode)). Try again?")
                     }
 
                     var currentEvent = ""

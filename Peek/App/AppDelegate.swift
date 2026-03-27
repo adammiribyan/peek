@@ -1,4 +1,5 @@
 import AppKit
+import Combine
 import KeyboardShortcuts
 @_spi(Experimental) import PostHog
 

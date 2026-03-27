@@ -12,22 +12,22 @@ enum JiraError: LocalizedError {
 
     var errorDescription: String? {
         switch self {
-        case .noCredentials: return "Not configured — open Settings (⌘,)"
-        case .invalidURL: return "Bad Jira URL — check Settings"
-        case .unauthorized: return "Bad credentials — check Settings"
-        case .forbidden: return "No permission for this ticket"
-        case .notFound(let key): return "\(key) not found"
-        case .serverError(let code): return "Jira error (\(code))"
+        case .noCredentials: return "Set up your Jira account first (⌘,)"
+        case .invalidURL: return "That Jira URL doesn't look right. Check Settings."
+        case .unauthorized: return "Jira didn't accept those credentials. Check Settings."
+        case .forbidden: return "You don't have access to this ticket."
+        case .notFound(let key): return "Couldn't find \(key). Check the ticket number?"
+        case .serverError(let code): return "Jira returned an error (\(code)). Try again?"
         case .networkError(let err):
             let msg = err.localizedDescription.lowercased()
             if msg.contains("timed out") || msg.contains("network") || msg.contains("internet") {
-                return "Can't reach Jira — check VPN?"
+                return "Can't reach Jira. On VPN?"
             }
             if msg.contains("not connected") {
-                return "No internet connection"
+                return "No internet connection."
             }
-            return "Connection failed — check VPN?"
-        case .decodingError: return "Unexpected Jira response"
+            return "Can't connect to Jira. On VPN?"
+        case .decodingError: return "Got a weird response from Jira. Try again?"
         }
     }
 }

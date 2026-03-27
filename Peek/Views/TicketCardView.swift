@@ -5,6 +5,7 @@ struct TicketCardView: View {
     let viewModel: TicketViewModel
     @State private var showRiskPopover = false
     @State private var copied = false
+    @Environment(\.accessibilityDifferentiateWithoutColor) private var differentiateWithoutColor
     let jiraDomain: String
     let onClose: () -> Void
     var onOpenTicket: ((String) -> Void)?
@@ -27,12 +28,20 @@ struct TicketCardView: View {
         }
         .task {
             await viewModel.loadSummary()
+            await viewModel.loadRiskAssessment()
         }
         .task {
             await viewModel.loadPullRequests()
         }
-        .task {
-            await viewModel.loadRiskAssessment()
+        .onReceive(NotificationCenter.default.publisher(for: AIConsentService.consentGrantedNotification)) { _ in
+            if viewModel.needsConsent {
+                viewModel.needsConsent = false
+                viewModel.isLoading = true
+                Task {
+                    await viewModel.loadSummary()
+                    await viewModel.loadRiskAssessment()
+                }
+            }
         }
     }
 
@@ -80,12 +89,20 @@ struct TicketCardView: View {
                     Button(action: {
                         if level != "green" { showRiskPopover.toggle() }
                     }) {
-                        Circle()
-                            .fill(riskColor(level))
-                            .frame(width: 8, height: 8)
-                            .frame(width: 20, height: 20)
-                            .background(.quaternary)
-                            .clipShape(.circle)
+                        Group {
+                            if differentiateWithoutColor {
+                                Image(systemName: riskIcon(level))
+                                    .font(.system(size: 9, weight: .bold))
+                                    .foregroundStyle(riskColor(level))
+                            } else {
+                                Circle()
+                                    .fill(riskColor(level))
+                                    .frame(width: 8, height: 8)
+                            }
+                        }
+                        .frame(width: 20, height: 20)
+                        .background(.quaternary)
+                        .clipShape(.circle)
                     }
                     .buttonStyle(.plain)
                     .accessibilityLabel("Risk: \(level)")
@@ -225,6 +242,28 @@ struct TicketCardView: View {
         }
     }
 
+    private var consentPrompt: some View {
+        VStack(spacing: 10) {
+            Image(systemName: "sparkles")
+                .font(.system(size: 20))
+                .foregroundStyle(.secondary)
+            Text("Summarize this ticket?")
+                .font(.system(size: 13, weight: .semibold))
+            Text("Peek will send the ticket details to an AI service to write a summary. Nothing is stored.")
+                .font(.system(size: 11))
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                .frame(maxWidth: 300)
+            Button("Summarize") {
+                Task { await viewModel.grantConsentAndLoad() }
+            }
+            .buttonStyle(.borderedProminent)
+            .controlSize(.small)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 8)
+    }
+
     private func prColor(_ status: String) -> Color {
         switch status {
         case "MERGED": return .purple
@@ -241,6 +280,14 @@ struct TicketCardView: View {
         }
     }
 
+    private func riskIcon(_ level: String) -> String {
+        switch level {
+        case "red": "exclamationmark.triangle.fill"
+        case "yellow": "exclamationmark.circle.fill"
+        default: "checkmark.circle.fill"
+        }
+    }
+
     private func openURL(_ urlString: String) {
         guard let url = URL(string: urlString) else { return }
         NSWorkspace.shared.open(url)
@@ -251,11 +298,13 @@ struct TicketCardView: View {
     private var summaryContent: some View {
         ScrollView {
             Group {
-                if viewModel.isLoading && viewModel.summaryText.isEmpty {
+                if viewModel.needsConsent {
+                    consentPrompt
+                } else if viewModel.isLoading && viewModel.summaryText.isEmpty {
                     HStack(spacing: 8) {
                         ProgressView()
                             .controlSize(.small)
-                        Text("Summarizing...")
+                        Text("Reading the ticket...")
                             .font(.system(size: 12))
                             .foregroundStyle(.secondary)
                     }

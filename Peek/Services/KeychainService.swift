@@ -75,11 +75,11 @@ enum KeychainError: LocalizedError {
         case .failed(let status):
             switch status {
             case errSecInteractionNotAllowed:
-                return "Keychain locked — unlock your Mac and try again"
+                return "Your Mac's keychain is locked. Unlock and try again."
             case errSecAuthFailed:
-                return "Keychain access denied — check app signing"
+                return "Couldn't access the keychain. Try reinstalling Peek."
             default:
-                return "Keychain error (\(status))"
+                return "Couldn't save to keychain (\(status))."
             }
         }
     }

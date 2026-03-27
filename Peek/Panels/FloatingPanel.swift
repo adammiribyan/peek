@@ -52,11 +52,26 @@ final class FloatingPanel: NSPanel {
         orderOut(nil)
     }
 
-    override func keyDown(with event: NSEvent) {
-        if event.modifierFlags.contains(.command) && event.charactersIgnoringModifiers == "w" {
-            orderOut(nil)
-        } else {
-            super.keyDown(with: event)
+    var onOpenSettings: (() -> Void)?
+    private var keyMonitor: Any?
+
+    func installKeyMonitor() {
+        keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
+            guard let self, self.isKeyWindow else { return event }
+            let mods = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+            if mods == .command && event.charactersIgnoringModifiers == "," {
+                self.onOpenSettings?()
+                return nil
+            }
+            if mods == .command && event.charactersIgnoringModifiers == "w" {
+                self.orderOut(nil)
+                return nil
+            }
+            return event
         }
+    }
+
+    deinit {
+        if let keyMonitor { NSEvent.removeMonitor(keyMonitor) }
     }
 }
