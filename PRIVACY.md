@@ -14,8 +14,8 @@ Jira data is displayed locally in the app. Credentials are stored in the macOS K
 
 Peek sends ticket data (title, description, comments, metadata) to a third-party AI provider for summarization and risk assessment. The active provider is either:
 
-- **Anthropic** (Claude) — [anthropic.com/privacy](https://www.anthropic.com/privacy)
-- **DeepSeek** (via Baseten) — [baseten.co/privacy](https://www.baseten.co/privacy)
+- **Anthropic** (Claude) — [anthropic.com/legal/privacy](https://www.anthropic.com/legal/privacy)
+- **DeepSeek** (via Baseten) — [baseten.co/privacy-policy](https://www.baseten.co/privacy-policy/)
 
 Data is processed in transit and is not retained by the AI provider beyond the request. No data is used for model training. You must grant explicit consent before any data is sent to AI providers, and you can revoke consent at any time in Settings.
 

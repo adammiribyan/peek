@@ -105,12 +105,12 @@ struct TicketPanelView: View {
                     .truncationMode(.tail)
             } else {
                 Text("⌘⇧J")
-                    .font(.system(size: 12, weight: .medium, design: .rounded))
+                    .font(.system(size: 20, weight: .medium, design: .rounded))
                     .foregroundStyle(.quaternary)
             }
         }
         .padding(.horizontal, 18)
-        .padding(.vertical, 16)
+        .padding(.vertical, 12)
         .offset(x: shakeOffset)
         .onAppear {
             focusedField = .project
