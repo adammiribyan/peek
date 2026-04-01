@@ -53,7 +53,7 @@ final class JiraService {
 
     func fetchIssue(key: String) async throws -> JiraIssue {
         let base = try apiBase()
-        let fields = "summary,status,assignee,reporter,priority,description,comment,issuetype,project,created,updated,issuelinks"
+        let fields = "summary,status,assignee,reporter,priority,description,comment,issuetype,project,created,updated,issuelinks,subtasks,parent"
         guard let url = URL(string: "\(base)/rest/api/3/issue/\(key)?fields=\(fields)") else {
             throw JiraError.invalidURL
         }

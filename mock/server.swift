@@ -78,6 +78,32 @@ let tickets: [String: Any] = [
                     ],
                 ],
             ],
+            "subtasks": [
+                [
+                    "key": "DASH-143",
+                    "fields": [
+                        "summary": "Add dark mode toggle UI component",
+                        "status": ["name": "In Progress", "statusCategory": ["key": "indeterminate", "name": "In Progress"]],
+                        "issuetype": ["name": "Sub-task"],
+                    ]
+                ],
+                [
+                    "key": "DASH-144",
+                    "fields": [
+                        "summary": "Persist theme preference in user profile",
+                        "status": ["name": "To Do", "statusCategory": ["key": "new", "name": "To Do"]],
+                        "issuetype": ["name": "Sub-task"],
+                    ]
+                ],
+                [
+                    "key": "DASH-145",
+                    "fields": [
+                        "summary": "Theme all chart components for dark mode",
+                        "status": ["name": "To Do", "statusCategory": ["key": "new", "name": "To Do"]],
+                        "issuetype": ["name": "Sub-task"],
+                    ]
+                ],
+            ] as [[String: Any]],
         ] as [String: Any],
     ] as [String: Any],
 
@@ -158,6 +184,40 @@ let tickets: [String: Any] = [
                 ]
             ],
             "issuelinks": [] as [[String: Any]],
+        ] as [String: Any],
+    ] as [String: Any],
+
+    "DASH-143": [
+        "id": "10143",
+        "key": "DASH-143",
+        "fields": [
+            "summary": "Add dark mode toggle UI component",
+            "status": ["name": "In Progress", "statusCategory": ["key": "indeterminate", "name": "In Progress"]],
+            "assignee": ["displayName": "Sarah Chen", "emailAddress": "sarah@acme.dev"],
+            "reporter": ["displayName": "Sarah Chen", "emailAddress": "sarah@acme.dev"],
+            "priority": ["name": "Medium"],
+            "issuetype": ["name": "Sub-task"],
+            "project": ["key": "DASH", "name": "Dashboard"],
+            "created": "2026-03-12T09:00:00.000+0000",
+            "updated": "2026-03-26T10:00:00.000+0000",
+            "description": [
+                "type": "doc",
+                "content": [
+                    ["type": "paragraph", "content": [
+                        ["type": "text", "text": "Build the toggle component for switching between Light, Dark, and System appearance modes. Should be a segmented control in Settings > Appearance."]
+                    ]],
+                ]
+            ] as [String: Any],
+            "comment": ["comments": [] as [[String: Any]]],
+            "issuelinks": [] as [[String: Any]],
+            "parent": [
+                "key": "DASH-142",
+                "fields": [
+                    "summary": "Implement dark mode toggle in user settings",
+                    "status": ["name": "In Progress", "statusCategory": ["key": "indeterminate", "name": "In Progress"]],
+                    "issuetype": ["name": "Story"],
+                ]
+            ],
         ] as [String: Any],
     ] as [String: Any],
 

@@ -198,15 +198,24 @@ struct TicketCardView: View {
 
     // MARK: - Linked Issues
 
-    private var links: [(label: String, key: String, summary: String)] {
-        guard let issuelinks = viewModel.issue.fields.issuelinks else { return [] }
-        var result: [(String, String, String)] = []
-        for link in issuelinks {
-            if let outward = link.outwardIssue {
-                result.append((link.type.outward, outward.key, outward.fields.summary))
+    private var links: [(label: String, key: String, summary: String, linkType: String)] {
+        var result: [(String, String, String, String)] = []
+        if let parent = viewModel.issue.fields.parent {
+            result.append(("Parent", parent.key, parent.fields.summary, "parent"))
+        }
+        if let issuelinks = viewModel.issue.fields.issuelinks {
+            for link in issuelinks {
+                if let outward = link.outwardIssue {
+                    result.append((link.type.outward, outward.key, outward.fields.summary, "link"))
+                }
+                if let inward = link.inwardIssue {
+                    result.append((link.type.inward, inward.key, inward.fields.summary, "link"))
+                }
             }
-            if let inward = link.inwardIssue {
-                result.append((link.type.inward, inward.key, inward.fields.summary))
+        }
+        if let subtasks = viewModel.issue.fields.subtasks {
+            for subtask in subtasks {
+                result.append(("Subtask", subtask.key, subtask.fields.summary, "subtask"))
             }
         }
         return result
@@ -217,28 +226,47 @@ struct TicketCardView: View {
         if !links.isEmpty {
             FlowLayout(spacing: 6) {
                 ForEach(Array(links.enumerated()), id: \.offset) { _, link in
-                    Button(action: {
-                        PostHogSDK.shared.capture("linked_ticket_opened", properties: [
-                            "from_key": viewModel.issue.key,
-                            "to_key": link.key,
-                        ])
-                        onOpenTicket?(link.key)
-                    }) {
-                        Text(link.key)
-                            .font(.system(size: 10, weight: .medium, design: .monospaced))
-                            .foregroundStyle(.blue)
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 2)
-                            .background(.blue.opacity(0.08))
-                            .clipShape(.rect(cornerRadius: 4))
-                    }
-                    .buttonStyle(.plain)
-                    .help("\(link.label) \(link.key): \(link.summary)")
-                    .onHover { h in if h { NSCursor.pointingHand.push() } else { NSCursor.pop() } }
+                    linkChip(link)
                 }
             }
             .padding(.horizontal, 16)
             .padding(.bottom, 8)
+        }
+    }
+
+    private func linkChip(_ link: (label: String, key: String, summary: String, linkType: String)) -> some View {
+        Button(action: {
+            PostHogSDK.shared.capture("linked_ticket_opened", properties: [
+                "from_key": viewModel.issue.key,
+                "to_key": link.key,
+                "link_type": link.linkType,
+            ])
+            onOpenTicket?(link.key)
+        }) {
+            HStack(spacing: 3) {
+                if let icon = linkIcon(link.linkType) {
+                    Image(systemName: icon)
+                        .font(.system(size: 8, weight: .semibold))
+                }
+                Text(link.key)
+                    .font(.system(size: 10, weight: .medium, design: .monospaced))
+            }
+            .foregroundStyle(.blue)
+            .padding(.horizontal, 6)
+            .padding(.vertical, 2)
+            .background(.blue.opacity(0.08))
+            .clipShape(.rect(cornerRadius: 4))
+        }
+        .buttonStyle(.plain)
+        .help("\(link.label) \(link.key): \(link.summary)")
+        .onHover { h in if h { NSCursor.pointingHand.push() } else { NSCursor.pop() } }
+    }
+
+    private func linkIcon(_ linkType: String) -> String? {
+        switch linkType {
+        case "parent": "arrow.up"
+        case "subtask": "list.bullet"
+        default: nil
         }
     }
 

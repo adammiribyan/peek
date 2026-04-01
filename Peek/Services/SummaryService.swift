@@ -81,6 +81,7 @@ Rules:
         let body: [String: Any] = [
             "model": basetenModel,
             "max_tokens": maxTokens,
+            "temperature": 0.33,
             "stream": stream,
             "messages": messages,
         ]
