@@ -1,6 +1,6 @@
 APP_NAME := Peek
 BUNDLE_ID := am.adam.peek
-VERSION := 0.7.1
+VERSION := 0.8.0
 BUILD_DIR := .build/release
 APP_BUNDLE := $(BUILD_DIR)/$(APP_NAME).app
 DMG_NAME := $(APP_NAME)-$(VERSION).dmg
